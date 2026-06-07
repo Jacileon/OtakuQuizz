@@ -1,27 +1,41 @@
 'use client';
 
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserSearch } from '@/components/friends/UserSearch';
 import { FriendList } from '@/components/friends/FriendList';
 import { FriendRequests } from '@/components/friends/FriendRequests';
 import { NotificationsList } from '@/components/friends/NotificationsList';
-import { Users, Search, Bell, MessageSquare } from 'lucide-react';
+import { ChatList, ChatWindow } from '@/components/chat/ChatList';
+import { AdminChatList, AdminChatWindow, NewAdminConversationDialog } from '@/components/chat/AdminChat';
+import { Users, Search, Bell, MessageSquare, Headphones, MessageCircle } from 'lucide-react';
+import { useUnreadMessages } from '@/lib/hooks/useChat';
 
 export default function FriendsPage() {
+  const [chatFriendId, setChatFriendId] = useState<string | null>(null);
+  const [adminConvId, setAdminConvId] = useState<string | null>(null);
+  const [showNewAdminConv, setShowNewAdminConv] = useState(false);
+  const unreadCount = useUnreadMessages();
+
   return (
     <div className="container max-w-2xl mx-auto py-8 px-4">
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Users className="h-8 w-8 text-primary" />
           Amis
+          {unreadCount > 0 && (
+            <span className="h-6 w-6 rounded-full bg-red-500 text-white text-sm flex items-center justify-center">
+              {unreadCount}
+            </span>
+          )}
         </h1>
         <p className="text-muted-foreground mt-2">
-          Gérez vos amis et découvrez de nouveaux joueurs
+          Gérez vos amis et discutez avec eux
         </p>
       </div>
 
       <Tabs defaultValue="friends" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="friends" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Amis
@@ -34,9 +48,18 @@ export default function FriendsPage() {
             <Bell className="h-4 w-4" />
             Demandes
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Notifications
+          <TabsTrigger value="chat" className="flex items-center gap-2 relative">
+            <MessageCircle className="h-4 w-4" />
+            Chat
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+                {unreadCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="support" className="flex items-center gap-2">
+            <Headphones className="h-4 w-4" />
+            Support
           </TabsTrigger>
         </TabsList>
 
@@ -52,8 +75,30 @@ export default function FriendsPage() {
           <FriendRequests />
         </TabsContent>
 
-        <TabsContent value="notifications">
-          <NotificationsList />
+        <TabsContent value="chat">
+          {chatFriendId ? (
+            <ChatWindow friendId={chatFriendId} onBack={() => setChatFriendId(null)} />
+          ) : (
+            <ChatList onOpenChat={setChatFriendId} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="support">
+          {adminConvId ? (
+            <AdminChatWindow conversationId={adminConvId} onBack={() => setAdminConvId(null)} />
+          ) : showNewAdminConv ? (
+            <NewAdminConversationDialog onCreated={(id) => { setAdminConvId(id); setShowNewAdminConv(false); }} />
+          ) : (
+            <div className="space-y-4">
+              <button
+                onClick={() => setShowNewAdminConv(true)}
+                className="w-full"
+              >
+                <NewAdminConversationDialog onCreated={(id) => { setAdminConvId(id); }} />
+              </button>
+              <AdminChatList onOpenChat={setAdminConvId} />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

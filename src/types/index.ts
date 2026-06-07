@@ -358,3 +358,50 @@ export type ModerationStats = {
   banned_users: number;
 };
 
+// === CHAT ===
+export type Conversation = {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  last_message_at: string | null;
+  created_at: string;
+  other_user?: UserProfile;
+  last_message?: Message;
+  unread_count?: number;
+};
+
+export type Message = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  sender?: UserProfile;
+};
+
+// === ADMIN CHAT ===
+export type AdminConversation = {
+  id: string;
+  user_id: string;
+  admin_id: string | null;
+  subject: string;
+  status: 'open' | 'assigned' | 'closed';
+  last_message_at: string | null;
+  created_at: string;
+  user?: UserProfile;
+  admin?: UserProfile;
+  last_message?: AdminMessage;
+  unread_count?: number;
+};
+
+export type AdminMessage = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  sender?: UserProfile;
+};
+
