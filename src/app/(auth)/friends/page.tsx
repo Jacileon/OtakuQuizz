@@ -7,14 +7,12 @@ import { FriendList } from '@/components/friends/FriendList';
 import { FriendRequests } from '@/components/friends/FriendRequests';
 import { NotificationsList } from '@/components/friends/NotificationsList';
 import { ChatList, ChatWindow } from '@/components/chat/ChatList';
-import { AdminChatList, AdminChatWindow, NewAdminConversationDialog } from '@/components/chat/AdminChat';
-import { Users, Search, Bell, MessageSquare, Headphones, MessageCircle } from 'lucide-react';
+import { Users, Search, Bell, MessageCircle } from 'lucide-react';
 import { useUnreadMessages } from '@/lib/hooks/useChat';
+import { SupportFloatingButton } from '@/components/support/SupportFloatingButton';
 
 export default function FriendsPage() {
   const [chatFriendId, setChatFriendId] = useState<string | null>(null);
-  const [adminConvId, setAdminConvId] = useState<string | null>(null);
-  const [showNewAdminConv, setShowNewAdminConv] = useState(false);
   const unreadCount = useUnreadMessages();
 
   return (
@@ -35,7 +33,7 @@ export default function FriendsPage() {
       </div>
 
       <Tabs defaultValue="friends" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="friends" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Amis
@@ -57,14 +55,10 @@ export default function FriendsPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="support" className="flex items-center gap-2">
-            <Headphones className="h-4 w-4" />
-            Support
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="friends">
-          <FriendList />
+          <FriendList onOpenChat={setChatFriendId} />
         </TabsContent>
 
         <TabsContent value="search">
@@ -82,25 +76,9 @@ export default function FriendsPage() {
             <ChatList onOpenChat={setChatFriendId} />
           )}
         </TabsContent>
-
-        <TabsContent value="support">
-          {adminConvId ? (
-            <AdminChatWindow conversationId={adminConvId} onBack={() => setAdminConvId(null)} />
-          ) : showNewAdminConv ? (
-            <NewAdminConversationDialog onCreated={(id) => { setAdminConvId(id); setShowNewAdminConv(false); }} />
-          ) : (
-            <div className="space-y-4">
-              <button
-                onClick={() => setShowNewAdminConv(true)}
-                className="w-full"
-              >
-                <NewAdminConversationDialog onCreated={(id) => { setAdminConvId(id); }} />
-              </button>
-              <AdminChatList onOpenChat={setAdminConvId} />
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
+
+      <SupportFloatingButton />
     </div>
   );
 }

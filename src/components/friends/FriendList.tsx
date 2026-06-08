@@ -13,11 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { UserMinus, Loader2, Users } from 'lucide-react';
+import { UserMinus, Loader2, Users, MessageCircle } from 'lucide-react';
 import { useFriends } from '@/lib/hooks/useFriends';
 import Link from 'next/link';
 
-export function FriendList() {
+export function FriendList({ onOpenChat }: { onOpenChat?: (friendId: string) => void }) {
   const { friends, loading, remove } = useFriends();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -70,14 +70,27 @@ export function FriendList() {
                 </div>
               </Link>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setDeleteId(friendship.id)}
-                className="text-destructive hover:text-destructive"
-              >
-                <UserMinus className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                {onOpenChat && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenChat(friendship.friend.id)}
+                    className="gap-1"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Message
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteId(friendship.id)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <UserMinus className="h-4 w-4" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

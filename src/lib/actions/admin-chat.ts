@@ -167,7 +167,7 @@ export async function sendAdminMessage(conversationId: string, content: string):
 
   const { data: conversation } = await supabase
     .from('admin_conversations')
-    .select('id, user_id')
+    .select('id, user_id, admin_id')
     .eq('id', conversationId)
     .single();
 

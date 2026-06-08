@@ -80,12 +80,80 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
   const handleAnswerSelect = (answerId: string) => {
     if (quizStatus !== 'playing') return;
     setSelectedAnswerId(answerId);
+    setTimeout(() => {
+      handleNextWithAnswer(answerId);
+    }, 300);
   };
 
   const handleItemSelect = (index: number) => {
     if (quizStatus !== 'playing') return;
     setSelectedItemIndex(index);
+    setTimeout(() => {
+      handleNextWithItem(index);
+    }, 300);
   };
+
+  const handleNextWithAnswer = useCallback((answerId: string) => {
+    if (!currentQuestion || quizStatus !== 'playing') return;
+
+    const timeTaken = Date.now() - questionStartTime;
+    const newAnswer: PlayerAnswerDraft = {
+      questionId: currentQuestion.id,
+      answerId: answerId,
+      timeMs: Math.min(timeTaken, currentQuestion.time_limit_seconds * 1000),
+    };
+
+    const updatedAnswers = [...answersRef.current, newAnswer];
+    setAnswers(updatedAnswers);
+    answersRef.current = updatedAnswers;
+    setSelectedAnswerId(null);
+    setSelectedItemIndex(null);
+    setTextInput('');
+
+    if (currentIndex < totalQuestions - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setQuestionStartTime(Date.now());
+    } else {
+      handleSubmit(updatedAnswers);
+    }
+  }, [currentQuestion, currentIndex, totalQuestions, questionStartTime, quizStatus]);
+
+  const handleNextWithItem = useCallback((index: number) => {
+    if (!currentQuestion || quizStatus !== 'playing' || isImpostor) return;
+
+    const timeTaken = Date.now() - questionStartTime;
+    let answerId: string | null = null;
+
+    if (index === currentQuestion.find_odd_data?.odd_index) {
+      const oddItem = currentQuestion.find_odd_data?.items[index];
+      if (oddItem) {
+        const matchingAnswer = currentQuestion.answers.find(
+          a => a.answer_text.toUpperCase() === oddItem.content.toUpperCase()
+        );
+        answerId = matchingAnswer?.id || null;
+      }
+    }
+
+    const newAnswer: PlayerAnswerDraft = {
+      questionId: currentQuestion.id,
+      answerId: answerId,
+      timeMs: Math.min(timeTaken, currentQuestion.time_limit_seconds * 1000),
+    };
+
+    const updatedAnswers = [...answersRef.current, newAnswer];
+    setAnswers(updatedAnswers);
+    answersRef.current = updatedAnswers;
+    setSelectedAnswerId(null);
+    setSelectedItemIndex(null);
+    setTextInput('');
+
+    if (currentIndex < totalQuestions - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setQuestionStartTime(Date.now());
+    } else {
+      handleSubmit(updatedAnswers);
+    }
+  }, [currentQuestion, currentIndex, totalQuestions, questionStartTime, quizStatus, isImpostor]);
 
   // Pour character_guess, trouver l'answerId correspondant au texte tapé
   const findMatchingAnswerId = (text: string): string | null => {
@@ -466,8 +534,8 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
           </div>
         ))}
 
-        {/* Navigation */}
-        <div className="flex items-center justify-end pt-4">
+        {/* Navigation - Hidden, auto-advance on click */}
+        <div className="hidden">
           <Button
             onClick={handleNext}
             disabled={
