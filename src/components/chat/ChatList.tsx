@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -40,9 +40,10 @@ import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/hooks/useToast';
 import { deleteMessages, deleteConversation } from '@/lib/actions/chat';
+import { createClient } from '@/lib/supabase/client';
 
 export function ChatList({ onOpenChat }: { onOpenChat: (friendId: string) => void }) {
-  const { conversations, loading, refetch } = useConversations();
+  const { conversations, loading } = useConversations();
 
   if (loading) {
     return (
@@ -75,7 +76,9 @@ export function ChatList({ onOpenChat }: { onOpenChat: (friendId: string) => voi
           <CardContent className="flex items-center gap-3 p-4">
             <Avatar>
               <AvatarImage src={conv.other_user.avatar_url || undefined} />
-              <AvatarFallback>{conv.other_user.username[0].toUpperCase()}</AvatarFallback>
+              <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                {conv.other_user.username[0].toUpperCase()}
+              </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
@@ -119,20 +122,19 @@ export function ChatWindow({ friendId, onBack }: { friendId: string; onBack: () 
   const [showDeleteConversation, setShowDeleteConversation] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setCurrentUserId(user.id);
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setCurrentUserId(data.user.id);
+    });
 
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', friendId)
-        .single();
-      if (profile) setOtherUser(profile as UserProfile);
-    };
-    init();
+    supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', friendId)
+      .single()
+      .then(({ data }) => {
+        if (data) setOtherUser(data as UserProfile);
+      });
   }, [friendId]);
 
   useEffect(() => {
@@ -215,7 +217,9 @@ export function ChatWindow({ friendId, onBack }: { friendId: string; onBack: () 
           {otherUser && (
             <Avatar className="h-8 w-8">
               <AvatarImage src={otherUser.avatar_url || undefined} />
-              <AvatarFallback>{otherUser.username[0].toUpperCase()}</AvatarFallback>
+              <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                {otherUser.username[0].toUpperCase()}
+              </AvatarFallback>
             </Avatar>
           )}
 
@@ -276,23 +280,26 @@ export function ChatWindow({ friendId, onBack }: { friendId: string; onBack: () 
               <p className="text-sm">Commencez la conversation !</p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                isOwn={msg.sender_id === currentUserId}
-                otherUser={otherUser}
-                selectionMode={selectionMode}
-                isSelected={selectedMessages.has(msg.id)}
-                onToggleSelect={() => toggleMessageSelection(msg.id)}
-                onLongPress={() => {
-                  if (!selectionMode) {
-                    setSelectionMode(true);
-                    setSelectedMessages(new Set([msg.id]));
-                  }
-                }}
-              />
-            ))
+            messages.map((msg) => {
+              const isOwn = msg.sender_id === currentUserId;
+              return (
+                <MessageBubble
+                  key={msg.id}
+                  message={msg}
+                  isOwn={isOwn}
+                  otherUser={otherUser}
+                  selectionMode={selectionMode}
+                  isSelected={selectedMessages.has(msg.id)}
+                  onToggleSelect={() => toggleMessageSelection(msg.id)}
+                  onLongPress={() => {
+                    if (!selectionMode) {
+                      setSelectionMode(true);
+                      setSelectedMessages(new Set([msg.id]));
+                    }
+                  }}
+                />
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </CardContent>
@@ -399,8 +406,8 @@ function MessageBubble({
   return (
     <div
       className={cn(
-        'flex items-end gap-2',
-        isOwn ? 'justify-end' : 'justify-start'
+        'flex items-end gap-2 mb-2',
+        isOwn ? 'flex-row-reverse' : 'flex-row'
       )}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -409,21 +416,33 @@ function MessageBubble({
       onTouchEnd={handleMouseUp}
       onClick={handleClick}
     >
-      {/* Avatar de l'ami (à gauche) */}
-      {!isOwn && (
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarImage src={otherUser?.avatar_url || undefined} />
-          <AvatarFallback>{otherUser?.username?.[0]?.toUpperCase() || '?'}</AvatarFallback>
-        </Avatar>
+      {/* Avatar */}
+      {!selectionMode && (
+        <div className="shrink-0">
+          {isOwn ? (
+            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
+              Vous
+            </div>
+          ) : (
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={otherUser?.avatar_url || undefined} />
+              <AvatarFallback className="bg-gray-300 text-gray-700 font-bold text-xs">
+                {otherUser?.username?.[0]?.toUpperCase() || '?'}
+              </AvatarFallback>
+            </Avatar>
+          )}
+        </div>
       )}
 
       {/* Case à cocher en mode sélection */}
       {selectionMode && (
-        <div className={cn('shrink-0', isOwn ? 'order-first' : 'order-first')}>
+        <div className="shrink-0 w-6 h-6 flex items-center justify-center">
           {isSelected ? (
-            <Check className="h-5 w-5 text-primary" />
+            <div className="w-5 h-5 rounded bg-blue-500 flex items-center justify-center">
+              <Check className="h-3 w-3 text-white" />
+            </div>
           ) : (
-            <Square className="h-5 w-5 text-muted-foreground" />
+            <div className="w-5 h-5 rounded border-2 border-gray-400" />
           )}
         </div>
       )}
@@ -431,29 +450,26 @@ function MessageBubble({
       {/* Bulle de message */}
       <div
         className={cn(
-          'max-w-[70%] rounded-2xl px-4 py-2 transition-all',
+          'max-w-[70%] px-4 py-2 rounded-2xl',
           isOwn
-            ? 'bg-primary text-primary-foreground rounded-br-md'
-            : 'bg-muted rounded-bl-md',
+            ? 'bg-blue-500 text-white rounded-br-sm'
+            : 'bg-gray-200 text-gray-900 rounded-bl-sm',
           selectionMode && 'cursor-pointer',
-          selectionMode && isSelected && 'ring-2 ring-primary'
+          selectionMode && isSelected && 'ring-2 ring-blue-500'
         )}
+        style={{
+          marginLeft: isOwn ? 0 : undefined,
+          marginRight: isOwn ? 0 : undefined,
+        }}
       >
         <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
         <p className={cn(
-          'text-[10px] mt-1 text-right',
-          isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
+          'text-[10px] mt-1',
+          isOwn ? 'text-blue-100 text-right' : 'text-gray-500 text-right'
         )}>
           {formatDistanceToNow(new Date(message.created_at), { addSuffix: true, locale: fr })}
         </p>
       </div>
-
-      {/* Avatar de l'utilisateur (à droite) */}
-      {isOwn && (
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarFallback>Vous</AvatarFallback>
-        </Avatar>
-      )}
     </div>
   );
 }
