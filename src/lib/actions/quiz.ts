@@ -387,3 +387,44 @@ export async function publishQuiz(id: string): Promise<ApiResponse<Quiz>> {
     return { data: null, error: 'Erreur serveur', success: false };
   }
 }
+
+export async function deleteQuestion(questionId: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Non authentifié');
+
+  const supabase = createClient();
+
+  // Vérifier que la question appartient à un quiz de l'utilisateur
+  const { data: question } = await supabase
+    .from('questions')
+    .select('id, quiz_id, quizzes!inner(creator_id)')
+    .eq('id', questionId)
+    .single();
+
+  if (!question) throw new Error('Question introuvable');
+
+  // Supprimer les réponses associées
+  await supabase
+    .from('answers')
+    .delete()
+    .eq('question_id', questionId);
+
+  // Supprimer la question
+  const { error } = await supabase
+    .from('questions')
+    .delete()
+    .eq('id', questionId);
+
+  if (error) throw new Error('Erreur suppression question');
+
+  // Mettre à jour le nombre de questions dans le quiz
+  const { count } = await supabase
+    .from('questions')
+    .select('*', { count: 'exact', head: true })
+    .eq('quiz_id', question.quiz_id);
+
+  await supabase
+    .from('quizzes')
+    .update({ question_count: count || 0 })
+    .eq('id', question.quiz_id);
+}

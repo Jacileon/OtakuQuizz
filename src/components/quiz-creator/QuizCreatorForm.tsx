@@ -17,8 +17,9 @@ import { QuizCreateInput, QuestionCreateInput, FindOddItem } from '@/types';
 import { CATEGORY_LIST, SUBCATEGORY_LIST, QUIZ_MIN_QUESTIONS } from '@/lib/constants';
 import { toast } from '@/lib/hooks/useToast';
 
-import { Plus, Save, Send, ChevronLeft, ChevronRight, Image, Sparkles, Users } from 'lucide-react';
+import { Plus, Save, Send, ChevronLeft, ChevronRight, Image, Sparkles, Users, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { deleteQuestion } from '@/lib/actions/quiz';
 
 const steps = ['Informations', 'Questions', 'Révision'];
 
@@ -67,6 +68,12 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
       })),
     }));
   });
+
+  // Stocker les IDs des questions existantes (pour suppression en BDD)
+  const [existingQuestionIds, setExistingQuestionIds] = useState<string[]>(() => {
+    if (!initialData?.questions) return [];
+    return initialData.questions.map((q: any) => q.id).filter(Boolean);
+  });
   
   const [globalTimeLimit, setGlobalTimeLimit] = useState(initialData?.duration_seconds || 30);
 
@@ -109,8 +116,20 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
     );
   };
 
-  const removeQuestion = (index: number) => {
+  const removeQuestion = async (index: number) => {
+    // Si on est en mode édition et que la question a un ID, la supprimer de la BDD
+    if (isEditing && existingQuestionIds[index]) {
+      try {
+        await deleteQuestion(existingQuestionIds[index]);
+        toast({ title: 'Question supprimée' });
+      } catch (error: any) {
+        toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+        return;
+      }
+    }
+    
     setQuestions((prev) => prev.filter((_, i) => i !== index));
+    setExistingQuestionIds((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAIImport = (importedQuestions: QuestionCreateInput[]) => {
