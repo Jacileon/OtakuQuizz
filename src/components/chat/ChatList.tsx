@@ -40,7 +40,7 @@ import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/hooks/useToast';
 import { deleteMessages, deleteConversation } from '@/lib/actions/chat';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 export function ChatList({ onOpenChat }: { onOpenChat: (friendId: string) => void }) {
   const { conversations, loading } = useConversations();
@@ -107,8 +107,8 @@ export function ChatList({ onOpenChat }: { onOpenChat: (friendId: string) => voi
 
 export function ChatWindow({ friendId, onBack }: { friendId: string; onBack: () => void }) {
   const { conversationId, messages, loading, sending, send, refetch } = useChat(friendId);
+  const { user } = useAuth();
   const [input, setInput] = useState('');
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -121,20 +121,20 @@ export function ChatWindow({ friendId, onBack }: { friendId: string; onBack: () 
   const [showDeleteMessages, setShowDeleteMessages] = useState(false);
   const [showDeleteConversation, setShowDeleteConversation] = useState(false);
 
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setCurrentUserId(data.user.id);
-    });
+  const currentUserId = user?.id || null;
 
-    supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', friendId)
-      .single()
-      .then(({ data }) => {
-        if (data) setOtherUser(data as UserProfile);
-      });
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', friendId)
+        .single();
+      if (data) setOtherUser(data as UserProfile);
+    };
+    fetchUser();
   }, [friendId]);
 
   useEffect(() => {
