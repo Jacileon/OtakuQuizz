@@ -5,7 +5,7 @@
 import { requireAdmin } from '@/lib/auth/actions';
 import { redirect } from '../../../../node_modules/next/navigation';
 import Link from 'next/link';
-import { Shield, FileText, Headphones } from 'lucide-react';
+import { Shield, FileText, Headphones, Trophy } from 'lucide-react';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   try {
@@ -26,6 +26,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Link href="/admin/tickets" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white transition-colors">
                 <Headphones className="h-4 w-4" />
                 Tickets
+              </Link>
+              <Link href="/admin/official-quizzes" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white transition-colors">
+                <Trophy className="h-4 w-4" />
+                Quiz Officiels
               </Link>
             </nav>
           </div>

@@ -419,9 +419,9 @@ export type QuizReward = {
   title: string;
   description: string | null;
   url: string | null;
-  url_preview_title: string | null;
-  url_preview_image: string | null;
-  url_preview_domain: string | null;
+  url_preview_title?: string | null;
+  url_preview_image?: string | null;
+  url_preview_domain?: string | null;
   rank_from: number;
   rank_to: number;
 };
