@@ -111,6 +111,7 @@ export async function requireAdmin() {
 
 export async function updateProfile(formData: {
   username?: string;
+  nickname?: string;
   bio?: string;
   country?: string;
   phone?: string;
@@ -147,6 +148,7 @@ export async function updateProfile(formData: {
 
   const updates: any = {};
   if (formData.username !== undefined) updates.username = formData.username;
+  if (formData.nickname !== undefined) updates.nickname = formData.nickname || null;
   if (formData.bio !== undefined) updates.bio = formData.bio || null;
   if (formData.country !== undefined) updates.country = formData.country || null;
   if (formData.phone !== undefined) updates.phone = formData.phone || null;

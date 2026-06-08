@@ -19,6 +19,7 @@ export type UserProfile = {
   id: string;
   email: string;
   username: string;
+  nickname: string | null;
   avatar_url: string | null;
   bio: string | null;
   country: string | null;
@@ -28,6 +29,7 @@ export type UserProfile = {
   level: number;
   rank: Rank;
   is_premium: boolean;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 };

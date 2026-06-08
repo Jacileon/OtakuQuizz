@@ -78,6 +78,7 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [username, setUsername] = useState(profile.username);
+  const [nickname, setNickname] = useState(profile.nickname || '');
   const [bio, setBio] = useState(profile.bio || '');
   const [country, setCountry] = useState(profile.country || '');
   const [phone, setPhone] = useState(profile.phone || '');
@@ -89,6 +90,7 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
 
     const result = await updateProfile({
       username,
+      nickname,
       bio,
       country,
       phone,
@@ -153,6 +155,22 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 3-30 caractères, lettres, chiffres et underscores uniquement
+              </p>
+            </div>
+
+            {/* Nickname */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Surnom / Nickname</label>
+              <Input
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="Ton surnom affiché"
+                className="bg-dark-surface"
+                minLength={2}
+                maxLength={30}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Le nom affiché publiquement (optionnel)
               </p>
             </div>
 
