@@ -41,6 +41,7 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
   const [quizResults, setQuizResults] = useState<any>(null);
   const [textInput, setTextInput] = useState('');
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
+  const [isAnswered, setIsAnswered] = useState(false);
 
   // Use ref to track answers without causing re-renders
   const answersRef = useRef<PlayerAnswerDraft[]>([]);
@@ -59,6 +60,7 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
   // Reset text input on question change
   useEffect(() => {
     setTextInput('');
+    setIsAnswered(false);
   }, [currentIndex]);
 
   // Gestion du countdown
@@ -78,16 +80,18 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
   }, [countdown, quizStatus]);
 
   const handleAnswerSelect = (answerId: string) => {
-    if (quizStatus !== 'playing') return;
+    if (quizStatus !== 'playing' || isAnswered) return;
     setSelectedAnswerId(answerId);
+    setIsAnswered(true);
     setTimeout(() => {
       handleNextWithAnswer(answerId);
     }, 300);
   };
 
   const handleItemSelect = (index: number) => {
-    if (quizStatus !== 'playing') return;
+    if (quizStatus !== 'playing' || isAnswered) return;
     setSelectedItemIndex(index);
+    setIsAnswered(true);
     setTimeout(() => {
       handleNextWithItem(index);
     }, 300);
@@ -445,7 +449,7 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
           key={`timer-${currentIndex}`}
           duration={currentQuestion.time_limit_seconds || 30}
           onTimeUp={handleTimeUp}
-          isActive={quizStatus === 'playing'}
+          isActive={quizStatus === 'playing' && !isAnswered}
         />
       )}
 
@@ -465,7 +469,7 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
               <button
                 key={i}
                 onClick={() => handleItemSelect(i)}
-                disabled={quizStatus !== 'playing'}
+                disabled={quizStatus !== 'playing' || isAnswered}
                 className={cn(
                   'p-4 rounded-lg border-2 transition-all duration-200',
                   selectedItemIndex === i
@@ -499,7 +503,7 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
               onChange={(e) => setTextInput(e.target.value.toUpperCase())}
               placeholder="Tape ta réponse ici..."
               className="w-full p-4 rounded-lg bg-dark-card border-2 border-dark-border text-center text-xl font-bold text-white placeholder:text-muted-foreground focus:border-brand focus:outline-none uppercase"
-              disabled={quizStatus !== 'playing'}
+              disabled={quizStatus !== 'playing' || isAnswered}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && textInput.trim()) {
@@ -528,7 +532,7 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
                 answer={answer}
                 isSelected={selectedAnswerId === answer.id}
                 onSelect={() => handleAnswerSelect(answer.id)}
-                disabled={quizStatus !== 'playing'}
+                disabled={quizStatus !== 'playing' || isAnswered}
               />
             ))}
           </div>
