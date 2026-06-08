@@ -7,13 +7,25 @@ import { FriendList } from '@/components/friends/FriendList';
 import { FriendRequests } from '@/components/friends/FriendRequests';
 import { NotificationsList } from '@/components/friends/NotificationsList';
 import { ChatList, ChatWindow } from '@/components/chat/ChatList';
-import { Users, Search, Bell, MessageCircle } from 'lucide-react';
+import { Users, Search, Bell, MessageCircle, ArrowLeft } from 'lucide-react';
 import { useUnreadMessages } from '@/lib/hooks/useChat';
 import { SupportFloatingButton } from '@/components/support/SupportFloatingButton';
+import { Button } from '@/components/ui/button';
 
 export default function FriendsPage() {
   const [chatFriendId, setChatFriendId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('friends');
   const unreadCount = useUnreadMessages();
+
+  const handleOpenChat = (friendId: string) => {
+    setChatFriendId(friendId);
+    setActiveTab('chat');
+  };
+
+  const handleBackFromChat = () => {
+    setChatFriendId(null);
+    setActiveTab('friends');
+  };
 
   return (
     <div className="container max-w-2xl mx-auto py-8 px-4">
@@ -32,7 +44,7 @@ export default function FriendsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="friends" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="friends" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -58,7 +70,7 @@ export default function FriendsPage() {
         </TabsList>
 
         <TabsContent value="friends">
-          <FriendList onOpenChat={setChatFriendId} />
+          <FriendList onOpenChat={handleOpenChat} />
         </TabsContent>
 
         <TabsContent value="search">
@@ -71,9 +83,9 @@ export default function FriendsPage() {
 
         <TabsContent value="chat">
           {chatFriendId ? (
-            <ChatWindow friendId={chatFriendId} onBack={() => setChatFriendId(null)} />
+            <ChatWindow friendId={chatFriendId} onBack={handleBackFromChat} />
           ) : (
-            <ChatList onOpenChat={setChatFriendId} />
+            <ChatList onOpenChat={handleOpenChat} />
           )}
         </TabsContent>
       </Tabs>
