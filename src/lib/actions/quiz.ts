@@ -394,20 +394,40 @@ export async function deleteQuestion(questionId: string): Promise<void> {
 
   const supabase = createClient();
 
-  // Vérifier que la question appartient à un quiz de l'utilisateur
-  const { data: question } = await supabase
+  // Récupérer la question pour avoir le quiz_id
+  const { data: question, error: fetchError } = await supabase
     .from('questions')
-    .select('id, quiz_id, quizzes!inner(creator_id)')
+    .select('id, quiz_id')
     .eq('id', questionId)
     .single();
 
-  if (!question) throw new Error('Question introuvable');
+  if (fetchError || !question) {
+    console.error('Erreur récupération question:', fetchError);
+    throw new Error('Question introuvable');
+  }
+
+  // Vérifier que le quiz appartient à l'utilisateur
+  const { data: quiz, error: quizError } = await supabase
+    .from('quizzes')
+    .select('id')
+    .eq('id', question.quiz_id)
+    .eq('creator_id', user.id)
+    .single();
+
+  if (quizError || !quiz) {
+    console.error('Erreur vérification quiz:', quizError);
+    throw new Error('Non autorisé');
+  }
 
   // Supprimer les réponses associées
-  await supabase
+  const { error: answersError } = await supabase
     .from('answers')
     .delete()
     .eq('question_id', questionId);
+
+  if (answersError) {
+    console.error('Erreur suppression réponses:', answersError);
+  }
 
   // Supprimer la question
   const { error } = await supabase
@@ -415,7 +435,10 @@ export async function deleteQuestion(questionId: string): Promise<void> {
     .delete()
     .eq('id', questionId);
 
-  if (error) throw new Error('Erreur suppression question');
+  if (error) {
+    console.error('Erreur suppression question:', error);
+    throw new Error('Erreur suppression question');
+  }
 
   // Mettre à jour le nombre de questions dans le quiz
   const { count } = await supabase
