@@ -49,9 +49,10 @@ export type UserStats = {
 };
 
 // === QUIZ ===
-export type QuizType = 'community' | 'official' | 'private';
-export type QuizStatus = 'draft' | 'published' | 'hidden' | 'deleted';
+export type QuizType = 'community' | 'official' | 'private' | 'challenge';
+export type QuizStatus = 'draft' | 'scheduled' | 'active' | 'published' | 'hidden' | 'archived' | 'deleted';
 export type QuestionType = 'text' | 'true_false' | 'image' | 'gif' | 'audio' | 'character_guess' | 'impostor';
+export type DurationMode = 'global' | 'per_question';
 
 // Type pour les questions character_guess et impostor
 export type CharacterGuessItem = {
@@ -105,6 +106,12 @@ export type Quiz = {
   is_visible: boolean;
   event_start_at: string | null;
   event_end_at: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  duration_seconds: number | null;
+  duration_mode: DurationMode;
+  leaderboard_public: boolean;
+  rewards: QuizReward[];
   created_at: string;
   updated_at: string;
   creator?: UserProfile;
@@ -403,5 +410,99 @@ export type AdminMessage = {
   is_read: boolean;
   created_at: string;
   sender?: UserProfile;
+};
+
+// === QUIZ REWARDS ===
+export type QuizReward = {
+  id?: string;
+  quiz_id?: string;
+  title: string;
+  description: string | null;
+  url: string | null;
+  url_preview_title: string | null;
+  url_preview_image: string | null;
+  url_preview_domain: string | null;
+  rank_from: number;
+  rank_to: number;
+};
+
+// === CHALLENGES ===
+export type ChallengeStatus = 'waiting' | 'ready' | 'playing' | 'completed' | 'cancelled' | 'expired';
+export type ParticipantStatus = 'pending' | 'accepted' | 'refused' | 'playing' | 'done';
+export type InvitationStatus = 'pending' | 'accepted' | 'refused' | 'expired';
+
+export type ChallengeSession = {
+  id: string;
+  quiz_id: string;
+  creator_id: string;
+  min_players: number;
+  invite_expires_at: string;
+  status: ChallengeStatus;
+  winner_id: string | null;
+  total_xp_pool: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  quiz?: Quiz;
+  creator?: UserProfile;
+  participants?: ChallengeParticipant[];
+  invitations?: ChallengeInvitation[];
+};
+
+export type ChallengeParticipant = {
+  id: string;
+  session_id: string;
+  user_id: string;
+  xp_bet: number;
+  status: ParticipantStatus;
+  score: number;
+  correct_count: number;
+  accuracy_rate: number;
+  time_taken_ms: number | null;
+  xp_won: number;
+  xp_lost: number;
+  joined_at: string;
+  completed_at: string | null;
+  user?: UserProfile;
+};
+
+export type ChallengeInvitation = {
+  id: string;
+  session_id: string;
+  inviter_id: string;
+  invitee_id: string;
+  status: InvitationStatus;
+  token: string;
+  expires_at: string;
+  created_at: string;
+  inviter?: UserProfile;
+  invitee?: UserProfile;
+  session?: ChallengeSession;
+};
+
+// === XP LEDGER ===
+export type XpLedgerEntry = {
+  id: string;
+  user_id: string;
+  amount: number;
+  type: 'frozen' | 'unfrozen' | 'won' | 'lost';
+  reference_type: 'challenge' | 'reward';
+  reference_id: string;
+  created_at: string;
+};
+
+// === OFFICIAL LEADERBOARD ===
+export type OfficialLeaderboardEntry = {
+  id: string;
+  quiz_id: string;
+  user_id: string;
+  session_id: string;
+  score: number;
+  rank_position: number | null;
+  accuracy_rate: number;
+  time_taken_ms: number;
+  created_at: string;
+  user?: UserProfile;
 };
 
