@@ -61,8 +61,6 @@ export default async function QuizEditPage({
     questions: questionsWithAnswers,
   };
 
-  console.log('Quiz data for edit:', JSON.stringify(quizData.questions?.map((q: any) => ({ id: q.id, text: q.question_text })), null, 2));
-
   return (
     <div className="p-4 lg:p-8 pb-24 md:pb-8">
       <div className="max-w-4xl mx-auto">

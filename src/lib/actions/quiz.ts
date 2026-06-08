@@ -394,17 +394,11 @@ export async function deleteQuestion(questionId: string): Promise<void> {
 
   const supabase = createClient();
 
-  console.log('Suppression question ID:', questionId, 'User:', user.id);
-
   // Supprimer les réponses associées d'abord
-  const { error: answersError } = await supabase
+  await supabase
     .from('answers')
     .delete()
     .eq('question_id', questionId);
-
-  if (answersError) {
-    console.error('Erreur suppression réponses:', answersError);
-  }
 
   // Supprimer la question
   const { error, count } = await supabase
@@ -412,14 +406,7 @@ export async function deleteQuestion(questionId: string): Promise<void> {
     .delete({ count: 'exact' })
     .eq('id', questionId);
 
-  console.log('Résultat suppression question:', { error, count });
-
-  if (error) {
-    console.error('Erreur suppression question:', error);
-    throw new Error('Erreur suppression question: ' + error.message);
-  }
-
-  if (count === 0) {
-    console.warn('Aucune question supprimée - possible problème RLS');
+  if (error || count === 0) {
+    throw new Error('Erreur suppression question');
   }
 }

@@ -72,9 +72,7 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
   // Stocker les IDs des questions existantes (pour suppression en BDD)
   const [existingQuestionIds, setExistingQuestionIds] = useState<string[]>(() => {
     if (!initialData?.questions) return [];
-    const ids = initialData.questions.map((q: any) => q.id).filter(Boolean);
-    console.log('Existing question IDs:', ids);
-    return ids;
+    return initialData.questions.map((q: any) => q.id).filter(Boolean);
   });
   
   const [globalTimeLimit, setGlobalTimeLimit] = useState(initialData?.duration_seconds || 30);
@@ -119,16 +117,13 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
   };
 
   const removeQuestion = async (index: number) => {
-    // Si on est en mode édition et que la question a un ID, la supprimer de la BDD
     const questionId = existingQuestionIds[index];
-    console.log('Suppression question - Index:', index, 'ID:', questionId, 'isEditing:', isEditing);
     
     if (isEditing && questionId) {
       try {
         await deleteQuestion(questionId);
         toast({ title: 'Question supprimée' });
       } catch (error: any) {
-        console.error('Erreur suppression:', error);
         toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
         return;
       }
