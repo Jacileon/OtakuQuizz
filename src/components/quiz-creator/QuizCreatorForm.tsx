@@ -69,6 +69,8 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
     }));
   });
 
+  console.log('Questions chargées:', questions.length, 'initialData:', initialData?.questions?.length);
+
   // Stocker les IDs des questions existantes (pour suppression en BDD)
   const [existingQuestionIds, setExistingQuestionIds] = useState<string[]>(() => {
     if (!initialData?.questions) return [];
