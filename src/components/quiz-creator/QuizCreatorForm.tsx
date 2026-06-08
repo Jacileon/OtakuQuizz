@@ -118,11 +118,15 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
 
   const removeQuestion = async (index: number) => {
     // Si on est en mode édition et que la question a un ID, la supprimer de la BDD
-    if (isEditing && existingQuestionIds[index]) {
+    const questionId = existingQuestionIds[index];
+    console.log('Suppression question - Index:', index, 'ID:', questionId, 'isEditing:', isEditing);
+    
+    if (isEditing && questionId) {
       try {
-        await deleteQuestion(existingQuestionIds[index]);
+        await deleteQuestion(questionId);
         toast({ title: 'Question supprimée' });
       } catch (error: any) {
+        console.error('Erreur suppression:', error);
         toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
         return;
       }
