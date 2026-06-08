@@ -236,27 +236,106 @@ export async function updateQuiz(id: string, data: Partial<QuizCreateInput>): Pr
 
     const supabase = createClient();
 
-    const { data: quiz, error } = await supabase
+    // Vérifier que l'utilisateur est le créateur
+    const { data: existingQuiz } = await supabase
       .from('quizzes')
-      .update({
-        title: data.title,
-        description: data.description,
-        category: data.category,
-        subcategory: data.subcategory,
-        series: data.series,
-        updated_at: new Date().toISOString(),
-      })
+      .select('id, creator_id')
       .eq('id', id)
       .eq('creator_id', user.id)
-      .select()
       .single();
 
-    if (error || !quiz) {
+    if (!existingQuiz) {
       return { data: null, error: 'Quiz non trouvé ou non autorisé', success: false };
     }
 
+    // Mettre à jour les informations du quiz
+    const updateData: any = {
+      updated_at: new Date().toISOString(),
+    };
+    if (data.title) updateData.title = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.category) updateData.category = data.category;
+    if (data.subcategory) updateData.subcategory = data.subcategory;
+    if (data.series) updateData.series = data.series;
+    if (data.thumbnail_url !== undefined) updateData.thumbnail_url = data.thumbnail_url;
+    if (data.duration_seconds !== undefined) updateData.duration_seconds = data.duration_seconds;
+    if (data.duration_mode !== undefined) updateData.duration_mode = data.duration_mode;
+
+    const { error: updateError } = await supabase
+      .from('quizzes')
+      .update(updateData)
+      .eq('id', id);
+
+    if (updateError) {
+      return { data: null, error: 'Erreur mise à jour quiz', success: false };
+    }
+
+    // Si des questions sont fournies, les mettre à jour
+    if (data.questions && data.questions.length > 0) {
+      // Supprimer les anciennes questions et réponses
+      const { data: oldQuestions } = await supabase
+        .from('questions')
+        .select('id')
+        .eq('quiz_id', id);
+
+      if (oldQuestions && oldQuestions.length > 0) {
+        const oldQuestionIds = oldQuestions.map(q => q.id);
+        await supabase.from('answers').delete().in('question_id', oldQuestionIds);
+        await supabase.from('questions').delete().eq('quiz_id', id);
+      }
+
+      // Insérer les nouvelles questions
+      for (let i = 0; i < data.questions.length; i++) {
+        const q = data.questions[i];
+        const { data: newQuestion, error: qError } = await supabase
+          .from('questions')
+          .insert({
+            quiz_id: id,
+            question_text: q.question_text,
+            question_type: q.question_type,
+            time_limit_seconds: q.time_limit_seconds || 30,
+            order_index: i,
+            media_url: q.media_url,
+            media_public_id: q.media_public_id,
+          })
+          .select('id')
+          .single();
+
+        if (qError) {
+          console.error('Erreur création question:', qError);
+          continue;
+        }
+
+        // Insérer les réponses
+        if (q.answers && q.answers.length > 0 && newQuestion) {
+          const answersToInsert = q.answers.map((a, j) => ({
+            question_id: newQuestion.id,
+            answer_text: a.answer_text,
+            is_correct: a.is_correct,
+            order_index: j,
+          }));
+
+          await supabase.from('answers').insert(answersToInsert);
+        }
+      }
+
+      // Mettre à jour le nombre de questions
+      await supabase
+        .from('quizzes')
+        .update({ question_count: data.questions.length })
+        .eq('id', id);
+    }
+
+    // Récupérer le quiz mis à jour
+    const { data: quiz } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('id', id)
+      .single();
+
     return { data: quiz as Quiz, error: null, success: true };
   } catch (error) {
+    console.error('Erreur updateQuiz:', error);
     return { data: null, error: 'Erreur serveur', success: false };
   }
 }

@@ -301,6 +301,8 @@ export type QuizCreateInput = {
   series: string;
   thumbnail_url?: string;
   thumbnail_public_id?: string;
+  duration_seconds?: number;
+  duration_mode?: 'global' | 'per_question';
   questions: QuestionCreateInput[];
 };
 

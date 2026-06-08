@@ -31,7 +31,9 @@ interface QuizCreatorFormProps {
     subcategory: string;
     series: string;
     thumbnail_url: string | null;
-    questions: any[];
+    duration_seconds?: number | null;
+    duration_mode?: string | null;
+    questions?: any[];
   };
 }
 
@@ -50,18 +52,23 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
   const [thumbnailUrl, setThumbnailUrl] = useState(initialData?.thumbnail_url || '');
 
   // Étape 2: Questions
-  const [questions, setQuestions] = useState<QuestionCreateInput[]>(
-    initialData?.questions?.map((q: any) => ({
-      question_text: q.question_text,
-      question_type: q.question_type,
-      time_limit_seconds: q.time_limit_seconds,
-      answers: q.answers?.map((a: any) => ({
-        answer_text: a.answer_text,
-        is_correct: a.is_correct,
-      })) || [],
-    })) || []
-  );
-  const [globalTimeLimit, setGlobalTimeLimit] = useState(30);
+  const [questions, setQuestions] = useState<QuestionCreateInput[]>(() => {
+    if (!initialData?.questions || initialData.questions.length === 0) return [];
+    
+    return initialData.questions.map((q: any) => ({
+      question_text: q.question_text || '',
+      question_type: q.question_type || 'text',
+      time_limit_seconds: q.time_limit_seconds || 30,
+      media_url: q.media_url || undefined,
+      media_public_id: q.media_public_id || undefined,
+      answers: (q.answers || []).map((a: any) => ({
+        answer_text: a.answer_text || '',
+        is_correct: a.is_correct || false,
+      })),
+    }));
+  });
+  
+  const [globalTimeLimit, setGlobalTimeLimit] = useState(initialData?.duration_seconds || 30);
 
   const addQuestion = (type: string = 'text') => {
     const newQuestion: QuestionCreateInput = {
@@ -125,7 +132,12 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
       subcategory,
       series,
       thumbnail_url: thumbnailUrl || undefined,
-      questions,
+      duration_seconds: globalTimeLimit,
+      duration_mode: 'per_question',
+      questions: questions.map(q => ({
+        ...q,
+        time_limit_seconds: globalTimeLimit,
+      })),
     };
 
     let result;

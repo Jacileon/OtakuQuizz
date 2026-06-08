@@ -87,8 +87,12 @@ export default async function QuizDetailPage({
                     <div className="text-xs text-muted-foreground">Parties</div>
                   </div>
                   <div className="p-3 rounded-lg bg-dark-surface text-center">
-                    <div className="text-sm font-medium">{quiz.category}</div>
-                    <div className="text-xs text-muted-foreground">Catégorie</div>
+                    <div className="text-sm font-medium">
+                      {quiz.duration_seconds ? `${quiz.duration_seconds}s` : '30s'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {quiz.duration_mode === 'global' ? 'Durée totale' : 'Par question'}
+                    </div>
                   </div>
                   <div className="p-3 rounded-lg bg-dark-surface text-center">
                     <div className="text-sm font-medium">{quiz.series}</div>
