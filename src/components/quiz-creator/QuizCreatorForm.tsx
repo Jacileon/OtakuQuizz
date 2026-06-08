@@ -72,7 +72,9 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
   // Stocker les IDs des questions existantes (pour suppression en BDD)
   const [existingQuestionIds, setExistingQuestionIds] = useState<string[]>(() => {
     if (!initialData?.questions) return [];
-    return initialData.questions.map((q: any) => q.id).filter(Boolean);
+    const ids = initialData.questions.map((q: any) => q.id).filter(Boolean);
+    console.log('Existing question IDs:', ids);
+    return ids;
   });
   
   const [globalTimeLimit, setGlobalTimeLimit] = useState(initialData?.duration_seconds || 30);
