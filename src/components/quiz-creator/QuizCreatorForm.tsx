@@ -40,9 +40,10 @@ interface QuizCreatorFormProps {
 
 export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditing = !!quizId;
+  // En mode édition avec des questions, afficher directement l'étape 2
+  const [step, setStep] = useState(isEditing && initialData?.questions && initialData.questions.length > 0 ? 1 : 0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Étape 1: Informations
   const [title, setTitle] = useState(initialData?.title || '');
@@ -68,8 +69,6 @@ export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
       })),
     }));
   });
-
-  console.log('Questions chargées:', questions.length, 'initialData:', initialData?.questions?.length);
 
   // Stocker les IDs des questions existantes (pour suppression en BDD)
   const [existingQuestionIds, setExistingQuestionIds] = useState<string[]>(() => {
