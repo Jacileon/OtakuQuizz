@@ -195,11 +195,13 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   if (!conversation) throw new Error('Conversation introuvable');
 
   // Supprimer définitivement ses propres messages
-  await supabase
+  const { error: deleteError, count } = await supabase
     .from('messages')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('conversation_id', conversationId)
     .eq('sender_id', user.id);
+
+  console.log('Messages supprimés:', count, 'Erreur:', deleteError);
 
   // Cacher les messages des autres pour cet utilisateur
   const { data: otherMessages } = await supabase
@@ -207,6 +209,8 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     .select('id')
     .eq('conversation_id', conversationId)
     .neq('sender_id', user.id);
+
+  console.log('Messages autres à cacher:', otherMessages?.length);
 
   if (otherMessages && otherMessages.length > 0) {
     for (const msg of otherMessages) {
