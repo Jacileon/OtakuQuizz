@@ -394,32 +394,9 @@ export async function deleteQuestion(questionId: string): Promise<void> {
 
   const supabase = createClient();
 
-  // Récupérer la question pour avoir le quiz_id
-  const { data: question, error: fetchError } = await supabase
-    .from('questions')
-    .select('id, quiz_id')
-    .eq('id', questionId)
-    .single();
+  console.log('Suppression question ID:', questionId, 'User:', user.id);
 
-  if (fetchError || !question) {
-    console.error('Erreur récupération question:', fetchError);
-    throw new Error('Question introuvable');
-  }
-
-  // Vérifier que le quiz appartient à l'utilisateur
-  const { data: quiz, error: quizError } = await supabase
-    .from('quizzes')
-    .select('id')
-    .eq('id', question.quiz_id)
-    .eq('creator_id', user.id)
-    .single();
-
-  if (quizError || !quiz) {
-    console.error('Erreur vérification quiz:', quizError);
-    throw new Error('Non autorisé');
-  }
-
-  // Supprimer les réponses associées
+  // Supprimer les réponses associées d'abord
   const { error: answersError } = await supabase
     .from('answers')
     .delete()
@@ -430,24 +407,19 @@ export async function deleteQuestion(questionId: string): Promise<void> {
   }
 
   // Supprimer la question
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from('questions')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('id', questionId);
+
+  console.log('Résultat suppression question:', { error, count });
 
   if (error) {
     console.error('Erreur suppression question:', error);
-    throw new Error('Erreur suppression question');
+    throw new Error('Erreur suppression question: ' + error.message);
   }
 
-  // Mettre à jour le nombre de questions dans le quiz
-  const { count } = await supabase
-    .from('questions')
-    .select('*', { count: 'exact', head: true })
-    .eq('quiz_id', question.quiz_id);
-
-  await supabase
-    .from('quizzes')
-    .update({ question_count: count || 0 })
-    .eq('id', question.quiz_id);
+  if (count === 0) {
+    console.warn('Aucune question supprimée - possible problème RLS');
+  }
 }
