@@ -98,7 +98,17 @@ export function useChat(friendId: string | null) {
     }
   }, [conversationId]);
 
-  return { conversationId, messages, loading, sending, send };
+  const refetch = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      const msgs = await getMessages(conversationId);
+      setMessages(msgs);
+    } catch (error) {
+      console.error('Erreur refresh messages:', error);
+    }
+  }, [conversationId]);
+
+  return { conversationId, messages, loading, sending, send, refetch };
 }
 
 export function useUnreadMessages() {

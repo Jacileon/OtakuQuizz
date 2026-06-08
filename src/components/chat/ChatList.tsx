@@ -1,20 +1,48 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MessageSquare, Send, Loader2, ArrowLeft, MessageCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  MessageSquare,
+  Send,
+  Loader2,
+  ArrowLeft,
+  MessageCircle,
+  MoreVertical,
+  Trash2,
+  Check,
+  X,
+  CheckSquare,
+  Square,
+} from 'lucide-react';
 import { useConversations, useChat, useUnreadMessages } from '@/lib/hooks/useChat';
 import { Message, UserProfile } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { toast } from '@/lib/hooks/useToast';
+import { deleteMessages, deleteConversation } from '@/lib/actions/chat';
 
 export function ChatList({ onOpenChat }: { onOpenChat: (friendId: string) => void }) {
-  const { conversations, loading } = useConversations();
+  const { conversations, loading, refetch } = useConversations();
 
   if (loading) {
     return (
@@ -75,10 +103,37 @@ export function ChatList({ onOpenChat }: { onOpenChat: (friendId: string) => voi
 }
 
 export function ChatWindow({ friendId, onBack }: { friendId: string; onBack: () => void }) {
-  const { messages, loading, sending, send } = useChat(friendId);
+  const { conversationId, messages, loading, sending, send, refetch } = useChat(friendId);
   const [input, setInput] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Mode sélection
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+
+  // Dialogs
+  const [showDeleteMessages, setShowDeleteMessages] = useState(false);
+  const [showDeleteConversation, setShowDeleteConversation] = useState(false);
+
+  useEffect(() => {
+    const init = async () => {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', friendId)
+        .single();
+      if (profile) setOtherUser(profile as UserProfile);
+    };
+    init();
+  }, [friendId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -99,77 +154,306 @@ export function ChatWindow({ friendId, onBack }: { friendId: string; onBack: () 
     }
   };
 
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedMessages(new Set());
+  };
+
+  const toggleMessageSelection = (messageId: string) => {
+    setSelectedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = () => {
+    const ownMessageIds = messages
+      .filter(m => m.sender_id === currentUserId)
+      .map(m => m.id);
+    setSelectedMessages(new Set(ownMessageIds));
+  };
+
+  const handleDeleteMessages = async () => {
+    if (!conversationId || selectedMessages.size === 0) return;
+    try {
+      await deleteMessages(conversationId, Array.from(selectedMessages));
+      toast({ title: `${selectedMessages.size} message(s) supprimé(s)` });
+      setSelectionMode(false);
+      setSelectedMessages(new Set());
+      refetch();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    }
+    setShowDeleteMessages(false);
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!conversationId) return;
+    try {
+      await deleteConversation(conversationId);
+      toast({ title: 'Conversation supprimée' });
+      onBack();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    }
+    setShowDeleteConversation(false);
+  };
+
   return (
-    <Card className="flex flex-col h-[600px]">
-      <CardHeader className="flex flex-row items-center gap-3 py-3 border-b">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <CardTitle className="text-base">Conversation</CardTitle>
-      </CardHeader>
-
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <MessageSquare className="h-8 w-8 mb-2" />
-            <p>Aucun message</p>
-            <p className="text-sm">Commencez la conversation !</p>
-          </div>
-        ) : (
-          messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
-        )}
-        <div ref={messagesEndRef} />
-      </CardContent>
-
-      <div className="p-4 border-t">
-        <div className="flex gap-2">
-          <Input
-            ref={inputRef}
-            placeholder="Écrire un message..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={sending}
-          />
-          <Button onClick={handleSend} disabled={!input.trim() || sending}>
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+    <>
+      <Card className="flex flex-col h-[600px]">
+        <CardHeader className="flex flex-row items-center gap-3 py-3 border-b">
+          <Button variant="ghost" size="sm" onClick={selectionMode ? toggleSelectionMode : onBack}>
+            {selectionMode ? <X className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
           </Button>
-        </div>
-      </div>
-    </Card>
+
+          {otherUser && (
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={otherUser.avatar_url || undefined} />
+              <AvatarFallback>{otherUser.username[0].toUpperCase()}</AvatarFallback>
+            </Avatar>
+          )}
+
+          <CardTitle className="text-base flex-1">
+            {selectionMode
+              ? `${selectedMessages.size} sélectionné(s)`
+              : otherUser?.username || 'Conversation'
+            }
+          </CardTitle>
+
+          {selectionMode ? (
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={selectAll}>
+                <CheckSquare className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteMessages(true)}
+                disabled={selectedMessages.size === 0}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={toggleSelectionMode}>
+                  <CheckSquare className="h-4 w-4 mr-2" />
+                  Sélectionner des messages
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setShowDeleteConversation(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Supprimer la discussion
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </CardHeader>
+
+        <CardContent className="flex-1 overflow-y-auto p-4 space-y-3">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <MessageSquare className="h-8 w-8 mb-2" />
+              <p>Aucun message</p>
+              <p className="text-sm">Commencez la conversation !</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                isOwn={msg.sender_id === currentUserId}
+                otherUser={otherUser}
+                selectionMode={selectionMode}
+                isSelected={selectedMessages.has(msg.id)}
+                onToggleSelect={() => toggleMessageSelection(msg.id)}
+                onLongPress={() => {
+                  if (!selectionMode) {
+                    setSelectionMode(true);
+                    setSelectedMessages(new Set([msg.id]));
+                  }
+                }}
+              />
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </CardContent>
+
+        {!selectionMode && (
+          <div className="p-4 border-t">
+            <div className="flex gap-2">
+              <Input
+                ref={inputRef}
+                placeholder="Écrire un message..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={sending}
+              />
+              <Button onClick={handleSend} disabled={!input.trim() || sending}>
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Dialog confirmation suppression messages */}
+      <Dialog open={showDeleteMessages} onOpenChange={setShowDeleteMessages}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer {selectedMessages.size} message(s) ?</DialogTitle>
+            <DialogDescription>
+              Cette action est irréversible. Les messages seront supprimés définitivement.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteMessages(false)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteMessages}>
+              Supprimer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog confirmation suppression conversation */}
+      <Dialog open={showDeleteConversation} onOpenChange={setShowDeleteConversation}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer toute la discussion ?</DialogTitle>
+            <DialogDescription>
+              Cette action est irréversible. Tous les messages seront supprimés et la conversation disparaîtra de votre liste.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConversation(false)}>
+              Annuler
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConversation}>
+              Supprimer la discussion
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
-  const [isOwn, setIsOwn] = useState(false);
+function MessageBubble({
+  message,
+  isOwn,
+  otherUser,
+  selectionMode,
+  isSelected,
+  onToggleSelect,
+  onLongPress,
+}: {
+  message: Message;
+  isOwn: boolean;
+  otherUser: UserProfile | null;
+  selectionMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  onLongPress: () => void;
+}) {
+  const pressTimer = useRef<NodeJS.Timeout>();
 
-  useEffect(() => {
-    const checkOwn = async () => {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsOwn(user?.id === message.sender_id);
-    };
-    checkOwn();
-  }, [message.sender_id]);
+  const handleMouseDown = () => {
+    pressTimer.current = setTimeout(() => {
+      onLongPress();
+    }, 500);
+  };
+
+  const handleMouseUp = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+    }
+  };
+
+  const handleClick = () => {
+    if (selectionMode) {
+      onToggleSelect();
+    }
+  };
 
   return (
-    <div className={cn('flex', isOwn ? 'justify-end' : 'justify-start')}>
+    <div
+      className={cn(
+        'flex items-end gap-2',
+        isOwn ? 'justify-end' : 'justify-start'
+      )}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onTouchStart={handleMouseDown}
+      onTouchEnd={handleMouseUp}
+      onClick={handleClick}
+    >
+      {/* Avatar de l'ami (à gauche) */}
+      {!isOwn && (
+        <Avatar className="h-8 w-8 shrink-0">
+          <AvatarImage src={otherUser?.avatar_url || undefined} />
+          <AvatarFallback>{otherUser?.username?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+        </Avatar>
+      )}
+
+      {/* Case à cocher en mode sélection */}
+      {selectionMode && (
+        <div className={cn('shrink-0', isOwn ? 'order-first' : 'order-first')}>
+          {isSelected ? (
+            <Check className="h-5 w-5 text-primary" />
+          ) : (
+            <Square className="h-5 w-5 text-muted-foreground" />
+          )}
+        </div>
+      )}
+
+      {/* Bulle de message */}
       <div
         className={cn(
-          'max-w-[70%] rounded-lg px-4 py-2',
-          isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
+          'max-w-[70%] rounded-2xl px-4 py-2 transition-all',
+          isOwn
+            ? 'bg-primary text-primary-foreground rounded-br-md'
+            : 'bg-muted rounded-bl-md',
+          selectionMode && 'cursor-pointer',
+          selectionMode && isSelected && 'ring-2 ring-primary'
         )}
       >
-        <p className="text-sm">{message.content}</p>
-        <p className={cn('text-xs mt-1', isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+        <p className={cn(
+          'text-[10px] mt-1 text-right',
+          isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
+        )}>
           {formatDistanceToNow(new Date(message.created_at), { addSuffix: true, locale: fr })}
         </p>
       </div>
+
+      {/* Avatar de l'utilisateur (à droite) */}
+      {isOwn && (
+        <Avatar className="h-8 w-8 shrink-0">
+          <AvatarFallback>Vous</AvatarFallback>
+        </Avatar>
+      )}
     </div>
   );
 }

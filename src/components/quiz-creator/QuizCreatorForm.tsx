@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { QuestionEditor } from './QuestionEditor';
 import { AIQuizImporter } from './AIQuizImporter';
-import { createQuiz } from '@/lib/actions/quiz';
+import { createQuiz, updateQuiz } from '@/lib/actions/quiz';
 
 import { QuizCreateInput, QuestionCreateInput, FindOddItem } from '@/types';
 import { CATEGORY_LIST, SUBCATEGORY_LIST, QUIZ_MIN_QUESTIONS } from '@/lib/constants';
@@ -22,21 +22,45 @@ import { cn } from '@/lib/utils';
 
 const steps = ['Informations', 'Questions', 'Révision'];
 
-export function QuizCreatorForm() {
+interface QuizCreatorFormProps {
+  quizId?: string;
+  initialData?: {
+    title: string;
+    description: string | null;
+    category: string;
+    subcategory: string;
+    series: string;
+    thumbnail_url: string | null;
+    questions: any[];
+  };
+}
+
+export function QuizCreatorForm({ quizId, initialData }: QuizCreatorFormProps) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditing = !!quizId;
 
   // Étape 1: Informations
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [subcategory, setSubcategory] = useState('');
-  const [series, setSeries] = useState('');
-  const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [description, setDescription] = useState(initialData?.description || '');
+  const [category, setCategory] = useState(initialData?.category || '');
+  const [subcategory, setSubcategory] = useState(initialData?.subcategory || '');
+  const [series, setSeries] = useState(initialData?.series || '');
+  const [thumbnailUrl, setThumbnailUrl] = useState(initialData?.thumbnail_url || '');
 
   // Étape 2: Questions
-  const [questions, setQuestions] = useState<QuestionCreateInput[]>([]);
+  const [questions, setQuestions] = useState<QuestionCreateInput[]>(
+    initialData?.questions?.map((q: any) => ({
+      question_text: q.question_text,
+      question_type: q.question_type,
+      time_limit_seconds: q.time_limit_seconds,
+      answers: q.answers?.map((a: any) => ({
+        answer_text: a.answer_text,
+        is_correct: a.is_correct,
+      })) || [],
+    })) || []
+  );
   const [globalTimeLimit, setGlobalTimeLimit] = useState(30);
 
   const addQuestion = (type: string = 'text') => {
@@ -104,13 +128,24 @@ export function QuizCreatorForm() {
       questions,
     };
 
-    const result = await createQuiz(quizData);
+    let result;
 
-    if (result.success && result.data) {
-      toast({ title: 'Succès', description: 'Quiz créé avec succès !', variant: 'default' });
-      router.push('/quiz/' + result.data.id);
+    if (isEditing && quizId) {
+      result = await updateQuiz(quizId, quizData);
+      if (result.success) {
+        toast({ title: 'Succès', description: 'Quiz modifié avec succès !', variant: 'default' });
+        router.push('/quiz/' + quizId);
+      } else {
+        toast({ title: 'Erreur', description: result.error || 'Erreur inconnue', variant: 'destructive' });
+      }
     } else {
-      toast({ title: 'Erreur', description: result.error || 'Erreur inconnue', variant: 'destructive' });
+      result = await createQuiz(quizData);
+      if (result.success && result.data) {
+        toast({ title: 'Succès', description: 'Quiz créé avec succès !', variant: 'default' });
+        router.push('/quiz/' + result.data.id);
+      } else {
+        toast({ title: 'Erreur', description: result.error || 'Erreur inconnue', variant: 'destructive' });
+      }
     }
 
     setIsSubmitting(false);

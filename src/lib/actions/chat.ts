@@ -158,3 +158,55 @@ export async function getUnreadMessagesCount(): Promise<number> {
 
   return count || 0;
 }
+
+export async function deleteMessages(conversationId: string, messageIds: string[]): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Non authentifié');
+
+  const { data: conversation } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('id', conversationId)
+    .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+    .single();
+
+  if (!conversation) throw new Error('Conversation introuvable');
+
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .in('id', messageIds)
+    .eq('conversation_id', conversationId);
+
+  if (error) throw new Error('Erreur suppression messages');
+  revalidatePath('/friends');
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Non authentifié');
+
+  const { data: conversation } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('id', conversationId)
+    .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+    .single();
+
+  if (!conversation) throw new Error('Conversation introuvable');
+
+  await supabase
+    .from('messages')
+    .delete()
+    .eq('conversation_id', conversationId);
+
+  const { error } = await supabase
+    .from('conversations')
+    .delete()
+    .eq('id', conversationId);
+
+  if (error) throw new Error('Erreur suppression conversation');
+  revalidatePath('/friends');
+}
