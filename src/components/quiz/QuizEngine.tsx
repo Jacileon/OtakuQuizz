@@ -83,8 +83,30 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
     if (quizStatus !== 'playing' || isAnswered) return;
     setSelectedAnswerId(answerId);
     setIsAnswered(true);
+    
+    const timeTaken = Date.now() - questionStartTime;
+    const newAnswer: PlayerAnswerDraft = {
+      questionId: currentQuestion!.id,
+      answerId: answerId,
+      timeMs: Math.min(timeTaken, currentQuestion!.time_limit_seconds * 1000),
+    };
+
+    const updatedAnswers = [...answersRef.current, newAnswer];
+    setAnswers(updatedAnswers);
+    answersRef.current = updatedAnswers;
+
     setTimeout(() => {
-      handleNextWithAnswer(answerId);
+      setSelectedAnswerId(null);
+      setSelectedItemIndex(null);
+      setTextInput('');
+      setIsAnswered(false);
+      
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex((prev) => prev + 1);
+        setQuestionStartTime(Date.now());
+      } else {
+        handleSubmit(updatedAnswers);
+      }
     }, 300);
   };
 
@@ -92,46 +114,14 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
     if (quizStatus !== 'playing' || isAnswered) return;
     setSelectedItemIndex(index);
     setIsAnswered(true);
-    setTimeout(() => {
-      handleNextWithItem(index);
-    }, 300);
-  };
-
-  const handleNextWithAnswer = useCallback((answerId: string) => {
-    if (!currentQuestion || quizStatus !== 'playing') return;
-
-    const timeTaken = Date.now() - questionStartTime;
-    const newAnswer: PlayerAnswerDraft = {
-      questionId: currentQuestion.id,
-      answerId: answerId,
-      timeMs: Math.min(timeTaken, currentQuestion.time_limit_seconds * 1000),
-    };
-
-    const updatedAnswers = [...answersRef.current, newAnswer];
-    setAnswers(updatedAnswers);
-    answersRef.current = updatedAnswers;
-    setSelectedAnswerId(null);
-    setSelectedItemIndex(null);
-    setTextInput('');
-
-    if (currentIndex < totalQuestions - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setQuestionStartTime(Date.now());
-    } else {
-      handleSubmit(updatedAnswers);
-    }
-  }, [currentQuestion, currentIndex, totalQuestions, questionStartTime, quizStatus]);
-
-  const handleNextWithItem = useCallback((index: number) => {
-    if (!currentQuestion || quizStatus !== 'playing' || isImpostor) return;
 
     const timeTaken = Date.now() - questionStartTime;
     let answerId: string | null = null;
 
-    if (index === currentQuestion.find_odd_data?.odd_index) {
-      const oddItem = currentQuestion.find_odd_data?.items[index];
+    if (index === currentQuestion!.find_odd_data?.odd_index) {
+      const oddItem = currentQuestion!.find_odd_data?.items[index];
       if (oddItem) {
-        const matchingAnswer = currentQuestion.answers.find(
+        const matchingAnswer = currentQuestion!.answers.find(
           a => a.answer_text.toUpperCase() === oddItem.content.toUpperCase()
         );
         answerId = matchingAnswer?.id || null;
@@ -139,25 +129,29 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
     }
 
     const newAnswer: PlayerAnswerDraft = {
-      questionId: currentQuestion.id,
+      questionId: currentQuestion!.id,
       answerId: answerId,
-      timeMs: Math.min(timeTaken, currentQuestion.time_limit_seconds * 1000),
+      timeMs: Math.min(timeTaken, currentQuestion!.time_limit_seconds * 1000),
     };
 
     const updatedAnswers = [...answersRef.current, newAnswer];
     setAnswers(updatedAnswers);
     answersRef.current = updatedAnswers;
-    setSelectedAnswerId(null);
-    setSelectedItemIndex(null);
-    setTextInput('');
 
-    if (currentIndex < totalQuestions - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setQuestionStartTime(Date.now());
-    } else {
-      handleSubmit(updatedAnswers);
-    }
-  }, [currentQuestion, currentIndex, totalQuestions, questionStartTime, quizStatus, isImpostor]);
+    setTimeout(() => {
+      setSelectedAnswerId(null);
+      setSelectedItemIndex(null);
+      setTextInput('');
+      setIsAnswered(false);
+      
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex((prev) => prev + 1);
+        setQuestionStartTime(Date.now());
+      } else {
+        handleSubmit(updatedAnswers);
+      }
+    }, 300);
+  };
 
   // Pour character_guess, trouver l'answerId correspondant au texte tapé
   const findMatchingAnswerId = (text: string): string | null => {
@@ -175,15 +169,18 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
   };
 
   const handleNext = useCallback(() => {
-    if (!currentQuestion) return;
+    if (!currentQuestion || quizStatus !== 'playing' || isAnswered) return;
+    
     // Vérifications selon le type
     if (isCharacterGuess) {
       if (!textInput.trim()) return;
     } else if (isImpostor) {
       if (selectedItemIndex === null) return;
     } else {
-      if (!selectedAnswerId || quizStatus !== 'playing') return;
+      if (!selectedAnswerId) return;
     }
+
+    setIsAnswered(true);
 
     const timeTaken = Date.now() - questionStartTime;
     
@@ -191,7 +188,6 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
     if (isCharacterGuess) {
       answerId = findMatchingAnswerId(textInput);
     } else if (isImpostor) {
-      // Trouver l'answerId correspondant à l'index sélectionné (l'intrus)
       if (selectedItemIndex === currentQuestion.find_odd_data?.odd_index) {
         const oddItem = currentQuestion.find_odd_data?.items[selectedItemIndex];
         if (oddItem) {
@@ -216,17 +212,21 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
     const updatedAnswers = [...answersRef.current, newAnswer];
     setAnswers(updatedAnswers);
     answersRef.current = updatedAnswers;
-    setSelectedAnswerId(null);
-    setSelectedItemIndex(null);
-    setTextInput('');
 
-    if (currentIndex < totalQuestions - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setQuestionStartTime(Date.now());
-    } else {
-      handleSubmit(updatedAnswers);
-    }
-  }, [selectedAnswerId, selectedItemIndex, textInput, isCharacterGuess, isImpostor, currentQuestion, currentIndex, totalQuestions, questionStartTime, quizStatus]);
+    setTimeout(() => {
+      setSelectedAnswerId(null);
+      setSelectedItemIndex(null);
+      setTextInput('');
+      setIsAnswered(false);
+
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex((prev) => prev + 1);
+        setQuestionStartTime(Date.now());
+      } else {
+        handleSubmit(updatedAnswers);
+      }
+    }, 300);
+  }, [currentQuestion, currentIndex, totalQuestions, questionStartTime, quizStatus, selectedAnswerId, selectedItemIndex, textInput, isCharacterGuess, isImpostor, isAnswered]);
 
   const handleSubmit = async (finalAnswers: PlayerAnswerDraft[]) => {
     setQuizStatus('submitting');
