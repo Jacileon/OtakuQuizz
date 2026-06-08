@@ -53,20 +53,24 @@ export async function getConversations(): Promise<(Conversation & { other_user: 
       .eq('id', otherUserId)
       .single();
 
+    // Récupérer le dernier message visible pour cet utilisateur
     const { data: lastMessage } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conv.id)
+      .not('hidden_for', 'cs', `{${user.id}}`)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
+    // Compter les messages non lus visibles
     const { count: unreadCount } = await supabase
       .from('messages')
       .select('*', { count: 'exact', head: true })
       .eq('conversation_id', conv.id)
       .eq('is_read', false)
-      .neq('sender_id', user.id);
+      .neq('sender_id', user.id)
+      .not('hidden_for', 'cs', `{${user.id}}`);
 
     result.push({
       ...conv,
@@ -77,37 +81,6 @@ export async function getConversations(): Promise<(Conversation & { other_user: 
   }
 
   return result as any;
-}
-
-export async function getMessages(conversationId: string, limit = 50): Promise<Message[]> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
-  const { data: conversation } = await supabase
-    .from('conversations')
-    .select('id')
-    .eq('id', conversationId)
-    .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-    .single();
-
-  if (!conversation) return [];
-
-  const { data: messages } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(limit);
-
-  await supabase
-    .from('messages')
-    .update({ is_read: true })
-    .eq('conversation_id', conversationId)
-    .neq('sender_id', user.id)
-    .eq('is_read', false);
-
-  return (messages as Message[]) || [];
 }
 
 export async function sendMessage(conversationId: string, content: string): Promise<Message> {
@@ -173,13 +146,37 @@ export async function deleteMessages(conversationId: string, messageIds: string[
 
   if (!conversation) throw new Error('Conversation introuvable');
 
-  const { error } = await supabase
+  // Récupérer les messages pour savoir lesquels sont envoyés par l'utilisateur
+  const { data: messages } = await supabase
     .from('messages')
-    .delete()
+    .select('id, sender_id')
     .in('id', messageIds)
     .eq('conversation_id', conversationId);
 
-  if (error) throw new Error('Erreur suppression messages');
+  if (!messages) return;
+
+  const ownMessageIds = messages.filter(m => m.sender_id === user.id).map(m => m.id);
+  const otherMessageIds = messages.filter(m => m.sender_id !== user.id).map(m => m.id);
+
+  // Supprimer définitivement ses propres messages
+  if (ownMessageIds.length > 0) {
+    await supabase
+      .from('messages')
+      .delete()
+      .in('id', ownMessageIds);
+  }
+
+  // Cacher les messages des autres pour cet utilisateur
+  if (otherMessageIds.length > 0) {
+    // Utiliser une requête RPC ou une mise à jour directe
+    for (const msgId of otherMessageIds) {
+      await supabase.rpc('add_to_hidden_for', {
+        message_id: msgId,
+        user_id: user.id
+      });
+    }
+  }
+
   revalidatePath('/friends');
 }
 
@@ -197,16 +194,63 @@ export async function deleteConversation(conversationId: string): Promise<void> 
 
   if (!conversation) throw new Error('Conversation introuvable');
 
+  // Supprimer définitivement ses propres messages
   await supabase
     .from('messages')
     .delete()
-    .eq('conversation_id', conversationId);
+    .eq('conversation_id', conversationId)
+    .eq('sender_id', user.id);
 
-  const { error } = await supabase
-    .from('conversations')
-    .delete()
-    .eq('id', conversationId);
+  // Cacher les messages des autres pour cet utilisateur
+  const { data: otherMessages } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .neq('sender_id', user.id);
 
-  if (error) throw new Error('Erreur suppression conversation');
+  if (otherMessages && otherMessages.length > 0) {
+    for (const msg of otherMessages) {
+      await supabase.rpc('add_to_hidden_for', {
+        message_id: msg.id,
+        user_id: user.id
+      });
+    }
+  }
+
   revalidatePath('/friends');
+}
+
+export async function getMessages(conversationId: string, limit = 100): Promise<Message[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: conversation } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('id', conversationId)
+    .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+    .single();
+
+  if (!conversation) return [];
+
+  // Récupérer les messages en excluant ceux cachés pour cet utilisateur
+  const { data: messages } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('conversation_id', conversationId)
+    .not('hidden_for', 'cs', `{${user.id}}`)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+
+  // Marquer les messages comme lus
+  await supabase
+    .from('messages')
+    .update({ is_read: true })
+    .eq('conversation_id', conversationId)
+    .neq('sender_id', user.id)
+    .eq('is_read', false)
+    .not('hidden_for', 'cs', `{${user.id}}`);
+
+  return (messages as Message[]) || [];
 }
