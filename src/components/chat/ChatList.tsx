@@ -42,6 +42,32 @@ import { toast } from '@/lib/hooks/useToast';
 import { deleteMessages, deleteConversation } from '@/lib/actions/chat';
 import { useAuth } from '@/components/providers/AuthProvider';
 
+function renderMessageContent(content: string, isOwn: boolean) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = content.split(urlRegex);
+  
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            'underline',
+            isOwn ? 'text-blue-100' : 'text-blue-600'
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 export function ChatList({ onOpenChat }: { onOpenChat: (friendId: string) => void }) {
   const { conversations, loading } = useConversations();
 
@@ -462,7 +488,9 @@ function MessageBubble({
           marginRight: isOwn ? 0 : undefined,
         }}
       >
-        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+        <p className="text-sm whitespace-pre-wrap break-words">
+          {renderMessageContent(message.content, isOwn)}
+        </p>
         <p className={cn(
           'text-[10px] mt-1',
           isOwn ? 'text-blue-100 text-right' : 'text-gray-500 text-right'

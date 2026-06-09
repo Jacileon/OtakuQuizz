@@ -33,7 +33,11 @@ export function ChallengeRequests() {
   };
 
   useEffect(() => {
-    fetchInvitations();
+    if (user) {
+      fetchInvitations();
+    } else {
+      setLoading(false);
+    }
   }, [user]);
 
   const handleAccept = async (invitationId: string) => {
