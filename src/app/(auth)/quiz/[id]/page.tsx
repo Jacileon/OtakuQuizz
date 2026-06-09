@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Play, Clock, Users, Trophy, Edit, ArrowLeft, Gamepad2, Medal } from 'lucide-react';
+import { Play, Clock, Users, Trophy, Edit, ArrowLeft, Gamepad2, Medal, Swords } from 'lucide-react';
 
 export default async function QuizDetailPage({
   params,
@@ -105,6 +105,12 @@ export default async function QuizDetailPage({
                     <Button size="lg" className="w-full gap-2">
                       <Play className="h-5 w-5" />
                       Jouer maintenant
+                    </Button>
+                  </Link>
+                  <Link href={`/challenges/create/${quiz.id}`} className="flex-1">
+                    <Button size="lg" variant="outline" className="w-full gap-2">
+                      <Swords className="h-5 w-5" />
+                      Défier vos amis
                     </Button>
                   </Link>
                   {isCreator && (

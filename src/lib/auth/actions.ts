@@ -159,6 +159,7 @@ export async function updateProfile(formData: {
 
 export async function completeProfile(formData: {
   nickname: string;
+  phone?: string;
   country?: string;
 }): Promise<{ success: boolean; error?: string }> {
   const supabase = createClient();
@@ -178,6 +179,7 @@ export async function completeProfile(formData: {
     .from('user_profiles')
     .update({
       nickname: formData.nickname,
+      phone: formData.phone || null,
       country: formData.country || null,
     })
     .eq('id', user.id);

@@ -13,6 +13,7 @@ export default function CompleteProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [nickname, setNickname] = useState('');
+  const [phone, setPhone] = useState('');
   const [country, setCountry] = useState('');
 
   const AFRICAN_COUNTRIES = [
@@ -36,7 +37,7 @@ export default function CompleteProfilePage() {
 
     try {
       setLoading(true);
-      const result = await completeProfile({ nickname, country });
+      const result = await completeProfile({ nickname, phone, country });
       if (result.success) {
         toast({ title: 'Profil complété !', description: 'Bienvenue sur Otaku Quiz Africa !' });
         router.push('/dashboard');
@@ -59,7 +60,7 @@ export default function CompleteProfilePage() {
           </div>
           <CardTitle className="text-2xl">Complète ton profil</CardTitle>
           <p className="text-muted-foreground">
-            Choisis un surnom pour commencer à jouer
+            Remplis ces informations pour commencer à jouer
           </p>
         </CardHeader>
         <CardContent>
@@ -81,6 +82,20 @@ export default function CompleteProfilePage() {
             </div>
 
             <div>
+              <label className="text-sm font-medium mb-1 block">Numéro de téléphone *</label>
+              <Input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Ex: +225 07 07 07 07"
+                required
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Avec l'indicatif pays
+              </p>
+            </div>
+
+            <div>
               <label className="text-sm font-medium mb-1 block">Pays</label>
               <select
                 value={country}
@@ -94,7 +109,7 @@ export default function CompleteProfilePage() {
               </select>
             </div>
 
-            <Button type="submit" className="w-full gap-2" disabled={loading || nickname.length < 2}>
+            <Button type="submit" className="w-full gap-2" disabled={loading || nickname.length < 2 || !phone}>
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

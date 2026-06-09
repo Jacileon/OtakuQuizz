@@ -9,7 +9,7 @@ export async function checkProfileComplete(): Promise<{ complete: boolean; missi
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('nickname, country')
+    .select('nickname, phone')
     .eq('id', user.id)
     .single();
 
@@ -17,6 +17,10 @@ export async function checkProfileComplete(): Promise<{ complete: boolean; missi
 
   if (!profile.nickname) {
     return { complete: false, missing: 'Veuillez compléter votre surnom (nickname)' };
+  }
+
+  if (!profile.phone) {
+    return { complete: false, missing: 'Veuillez compléter votre numéro de téléphone' };
   }
 
   return { complete: true };
