@@ -97,13 +97,40 @@ export async function inviteToChallenge(sessionId: string, friendId: string): Pr
 
   if (error) throw new Error('Erreur envoi invitation');
 
+  // Récupérer le nom de l'inviteur
+  const { data: inviterProfile } = await supabase
+    .from('user_profiles')
+    .select('nickname, username')
+    .eq('id', user.id)
+    .single();
+
+  const inviterName = inviterProfile?.nickname || inviterProfile?.username || 'Quelqu\'un';
+
+  // Notification pour l'invité
   await supabase.from('notifications').insert({
     user_id: friendId,
     type: 'friend_request',
-    title: 'Défi reçu',
-    message: `Vous avez été défié ! XP mis en jeu: ${0}`,
+    title: 'Défi reçu !',
+    message: `${inviterName} vous a défié ! Cliquez pour voir.`,
     data: { session_id: sessionId, inviter_id: user.id },
   });
+
+  // Envoyer un message dans la conversation si elle existe
+  const [smallerId, biggerId] = [user.id, friendId].sort() as [string, string];
+  const { data: conversation } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('user1_id', smallerId)
+    .eq('user2_id', biggerId)
+    .single();
+
+  if (conversation) {
+    await supabase.from('messages').insert({
+      conversation_id: conversation.id,
+      sender_id: user.id,
+      content: `⚔️ Vous ai défié sur un quiz ! Cliquez ici pour voir le défi : /challenges/${sessionId}`,
+    });
+  }
 
   revalidatePath('/challenges');
 }
