@@ -43,9 +43,9 @@ export async function calculateQuestionXP(
     if (attemptNumber === 1) {
       return baseXP;
     } else if (attemptNumber === 2) {
-      return Math.max(1, Math.round(baseXP / 2));
+      return Math.max(1, Math.floor(baseXP / 2));
     } else if (attemptNumber === 3) {
-      return Math.max(1, Math.round(baseXP / 4));
+      return Math.max(1, Math.floor(baseXP / 4));
     } else {
       return 0;
     }

@@ -115,7 +115,7 @@ export async function POST(request: Request) {
         isCorrect,
         attemptNumber
       );
-      totalXP += xpForQuestion;
+      totalXP += Math.floor(xpForQuestion);
 
       // Enregistrer la tentative de question
       await recordQuestionAttempt(
@@ -159,13 +159,14 @@ export async function POST(request: Request) {
       .eq('id', sessionId);
 
     // Enregistrer la tentative de quiz
-    console.log('Recording quiz attempt:', { userId: user.id, quizId: session.quiz_id, attemptNumber, totalScore, totalXP });
-    await recordQuizAttempt(user.id, session.quiz_id, attemptNumber, totalScore, totalXP);
+    const finalXP = Math.floor(totalXP);
+    console.log('Recording quiz attempt:', { userId: user.id, quizId: session.quiz_id, attemptNumber, totalScore, finalXP });
+    await recordQuizAttempt(user.id, session.quiz_id, attemptNumber, totalScore, finalXP);
 
     // Attribuer l'XP
-    console.log('Adding XP:', { userId: user.id, totalXP });
-    if (totalXP > 0) {
-      await addXP(user.id, totalXP, 'quiz', session.quiz_id);
+    console.log('Adding XP:', { userId: user.id, finalXP });
+    if (finalXP > 0) {
+      await addXP(user.id, finalXP, 'quiz', session.quiz_id);
     }
 
     // Mettre à jour le classement du quiz

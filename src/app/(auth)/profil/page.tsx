@@ -55,26 +55,9 @@ export default async function ProfilPage() {
     getUserCollections(user.id),
   ]);
 
-  // Récupérer l'historique des parties jouées
+  // Récupérer l'historique des parties jouées (completed_at non null)
   const { data: gameHistory, error: historyError } = await supabase
-    .from('game_sessions')
-    .select(`
-      id,
-      quiz_id,
-      score,
-      correct_count,
-      total_questions,
-      accuracy_rate,
-      is_perfect,
-      time_taken_ms,
-      started_at,
-      completed_at,
-      quiz:quiz_id(title, thumbnail_url, category, series)
-    `)
-    .eq('user_id', user.id)
-    .not('completed_at', 'is', null)
-    .order('completed_at', { ascending: false })
-    .limit(50);
+    .rpc('get_user_game_history', { p_user_id: user.id });
 
   console.log('Game history count:', gameHistory?.length, 'error:', historyError);
   console.log('User ID:', user.id);
@@ -112,10 +95,10 @@ export default async function ProfilPage() {
                         <div className="flex items-start gap-4">
                           {/* Thumbnail */}
                           <div className="w-16 h-16 rounded-lg bg-dark-surface overflow-hidden shrink-0">
-                            {session.quiz?.thumbnail_url ? (
+                            {session.quiz_thumbnail ? (
                               <img
-                                src={session.quiz.thumbnail_url}
-                                alt={session.quiz?.title}
+                                src={session.quiz_thumbnail}
+                                alt={session.quiz_title}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
@@ -127,7 +110,7 @@ export default async function ProfilPage() {
 
                           {/* Info */}
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium truncate">{session.quiz?.title || 'Quiz supprimé'}</h3>
+                            <h3 className="font-medium truncate">{session.quiz_title || 'Quiz supprimé'}</h3>
                             <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
@@ -139,9 +122,9 @@ export default async function ProfilPage() {
                                   minute: '2-digit',
                                 })}
                               </span>
-                              {session.quiz?.series && (
+                              {session.quiz_series && (
                                 <span className="px-2 py-0.5 rounded-full bg-dark-surface text-xs">
-                                  {session.quiz.series}
+                                  {session.quiz_series}
                                 </span>
                               )}
                             </div>
