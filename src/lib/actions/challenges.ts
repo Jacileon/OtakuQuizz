@@ -49,7 +49,10 @@ export async function createChallengeSession(quizId: string, xpBet: number): Pro
     .select('id')
     .single();
 
-  if (error) throw new Error('Erreur création défi');
+  if (error) {
+    console.error('Erreur création défi:', error);
+    throw new Error('Erreur création défi: ' + error.message);
+  }
 
   await supabase.from('challenge_participants').insert({
     session_id: session.id,

@@ -72,7 +72,7 @@ export default async function ProfilPage() {
       quiz:quiz_id(title, thumbnail_url, category, series)
     `)
     .eq('user_id', user.id)
-    .neq('completed_at', null)
+    .not('completed_at', 'is', null)
     .order('completed_at', { ascending: false })
     .limit(50);
 
