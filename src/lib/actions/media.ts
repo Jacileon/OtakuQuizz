@@ -62,9 +62,12 @@ export async function deleteMedia(publicId: string): Promise<void> {
 }
 
 export async function uploadAvatar(
-  file: File
+  formData: FormData
 ): Promise<{ url: string; publicId: string } | { error: string }> {
   try {
+    const file = formData.get('file') as File;
+    if (!file) return { error: 'Aucun fichier sélectionné' };
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const base64 = buffer.toString('base64');

@@ -45,8 +45,10 @@ export function AvatarUpload({ currentAvatarUrl, username, onUpload }: AvatarUpl
       };
       reader.readAsDataURL(file);
 
-      // Upload vers Cloudinary
-      const result = await uploadAvatar(file);
+      // Upload vers Cloudinary via FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      const result = await uploadAvatar(formData);
 
       if ('error' in result) {
         throw new Error(result.error);
