@@ -84,7 +84,19 @@ export async function isAdmin(): Promise<boolean> {
 
   if (!user) return false;
 
-  return user.user_metadata?.role === 'admin' || user.app_metadata?.role === 'admin';
+  // Vérifier dans les métadonnées Supabase
+  if (user.user_metadata?.role === 'admin' || user.app_metadata?.role === 'admin') {
+    return true;
+  }
+
+  // Vérifier dans la table user_profiles
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single();
+
+  return profile?.is_admin || false;
 }
 
 export async function requireAuth() {
