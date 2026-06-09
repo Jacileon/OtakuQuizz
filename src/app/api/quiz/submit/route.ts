@@ -44,18 +44,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Session déjà complétée' }, { status: 400 });
     }
 
-    // Vérifier si une tentative est déjà en cours (éviter les doubles soumissions)
-    const { data: existingAttempt } = await supabase
-      .from('user_quiz_attempts')
-      .select('id')
+    // Marquer la session comme complétée IMMÉDIATEMENT pour éviter les doubles soumissions
+    await supabase
+      .from('game_sessions')
+      .update({ completed_at: new Date().toISOString() })
+      .eq('id', sessionId)
       .eq('user_id', user.id)
-      .eq('quiz_id', session.quiz_id)
-      .eq('attempt_number', await getUserAttemptNumber(user.id, session.quiz_id))
+      .is('completed_at', null);
+
+    // Re-vérifier au cas où une autre requête a passé entre-temps
+    const { data: reCheck } = await supabase
+      .from('game_sessions')
+      .select('completed_at')
+      .eq('id', sessionId)
       .single();
 
-    if (existingAttempt) {
-      return NextResponse.json({ error: 'Tentative déjà enregistrée' }, { status: 400 });
-    }
+    // Si plus d'une requête a marqué la session, la première gagne
+    // On continue quand même pour calculer le score
 
     // Récupérer les bonnes réponses depuis la BDD (jamais exposées au client)
     const questionIds = safeAnswers.map((a: any) => a.questionId);
@@ -150,11 +155,10 @@ export async function POST(request: Request) {
       await supabase.from('player_answers').insert(playerAnswers);
     }
 
-    // Mettre à jour la session
+    // Mettre à jour le score de la session (completed_at déjà mis au début)
     await supabase
       .from('game_sessions')
       .update({
-        completed_at: new Date().toISOString(),
         score: totalScore,
         correct_count: correctCount,
         accuracy_rate: accuracyRate,
