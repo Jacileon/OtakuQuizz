@@ -14,8 +14,10 @@ export function ProfileCheck({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const checkProfile = async () => {
+      // Si l'auth charge encore, attendre
       if (authLoading) return;
       
+      // Si pas d'utilisateur, ne pas vérifier
       if (!user) {
         setChecking(false);
         return;
@@ -27,22 +29,37 @@ export function ProfileCheck({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const supabase = createClient();
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('nickname')
-        .eq('id', user.id)
-        .single();
+      try {
+        const supabase = createClient();
+        const { data: profile, error } = await supabase
+          .from('user_profiles')
+          .select('nickname')
+          .eq('id', user.id)
+          .single();
 
-      if (!profile?.nickname) {
-        router.push('/complete-profile');
-        return;
+        // Si erreur ou pas de nickname, rediriger
+        if (error || !profile?.nickname) {
+          router.push('/complete-profile');
+          return;
+        }
+
+        // Profil complet
+        setChecking(false);
+      } catch (err) {
+        // En cas d'erreur, laisser passer l'utilisateur
+        console.error('Erreur vérification profil:', err);
+        setChecking(false);
       }
-
-      setChecking(false);
     };
 
+    // Timeout de sécurité pour éviter le blocage
+    const timeout = setTimeout(() => {
+      setChecking(false);
+    }, 3000);
+
     checkProfile();
+
+    return () => clearTimeout(timeout);
   }, [user, authLoading, pathname, router]);
 
   if (authLoading || checking) {
