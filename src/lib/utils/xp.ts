@@ -61,13 +61,17 @@ export async function getUserAttemptNumber(
 ): Promise<number> {
   try {
     const supabase = await createClient();
-    const { count } = await supabase
+    
+    // Compter les tentatives existantes
+    const { data: attempts, error } = await supabase
       .from('user_quiz_attempts')
-      .select('*', { count: 'exact', head: true })
+      .select('id')
       .eq('user_id', userId)
       .eq('quiz_id', quizId);
 
-    return (count || 0) + 1;
+    console.log('getUserAttemptNumber - attempts:', attempts?.length, 'error:', error);
+    
+    return (attempts?.length || 0) + 1;
   } catch (error) {
     console.error('Erreur getUserAttemptNumber:', error);
     return 1;
@@ -84,13 +88,19 @@ export async function recordQuizAttempt(
   try {
     const supabase = await createClient();
     
-    await supabase.from('user_quiz_attempts').insert({
+    const { error } = await supabase.from('user_quiz_attempts').insert({
       user_id: userId,
       quiz_id: quizId,
       attempt_number: attemptNumber,
       score,
       xp_earned: xpEarned,
     });
+
+    if (error) {
+      console.error('Erreur recordQuizAttempt:', error);
+    } else {
+      console.log('Quiz attempt enregistrée:', { userId, quizId, attemptNumber, score, xpEarned });
+    }
   } catch (error) {
     console.error('Erreur recordQuizAttempt:', error);
   }
