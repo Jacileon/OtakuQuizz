@@ -172,3 +172,7 @@ export function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+export function getDisplayName(profile: { nickname?: string | null; username: string }): string {
+  return profile.nickname || profile.username;
+}
+

@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { updateProfile } from '@/lib/auth/actions';
-import { uploadAvatar } from '@/lib/actions/media';
 import { UserProfile } from '@/types';
 import { toast } from '@/lib/hooks/useToast';
 import { getInitials } from '@/lib/utils';
@@ -76,10 +75,7 @@ interface ProfileEditFormProps {
 
 export function ProfileEditForm({ profile }: ProfileEditFormProps) {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url || '');
   
   const [username, setUsername] = useState(profile.username);
   const [nickname, setNickname] = useState(profile.nickname || '');
@@ -88,39 +84,16 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
   const [phone, setPhone] = useState(profile.phone || '');
   const [favoriteAnime, setFavoriteAnime] = useState(profile.favorite_anime || '');
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Erreur', description: 'L\'image ne doit pas dépasser 5MB', variant: 'destructive' });
-      return;
-    }
-
-    setIsUploading(true);
-    const result = await uploadAvatar(file);
-
-    if ('error' in result) {
-      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
-    } else {
-      setAvatarUrl(result.url);
-      toast({ title: 'Avatar mis à jour' });
-    }
-    setIsUploading(false);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     const result = await updateProfile({
-      username,
       nickname,
       bio,
       country,
       phone,
       favorite_anime: favoriteAnime,
-      avatar_url: avatarUrl,
     });
 
     if (result.success) {
@@ -149,30 +122,17 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={avatarUrl || undefined} />
+                <AvatarImage src={profile.avatar_url || undefined} />
                 <AvatarFallback className="text-2xl bg-dark-surface">
                   {getInitials(profile.username)}
                 </AvatarFallback>
               </Avatar>
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
                 className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-brand flex items-center justify-center hover:bg-brand/80 transition-colors"
               >
-                {isUploading ? (
-                  <Loader2 className="h-4 w-4 text-white animate-spin" />
-                ) : (
-                  <Camera className="h-4 w-4 text-white" />
-                )}
+                <Camera className="h-4 w-4 text-white" />
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarChange}
-                className="hidden"
-              />
             </div>
             <p className="text-xs text-muted-foreground">Niveau {profile.level} • Rang {profile.rank}</p>
           </div>
@@ -186,6 +146,7 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
                 value={username}
                 className="bg-dark-surface opacity-60 cursor-not-allowed"
                 disabled
+                readOnly
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Le username ne peut pas être modifié
@@ -205,7 +166,7 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
                 maxLength={30}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                C'est le nom qui sera affiché publiquement
+                C'est ce nom qui sera affiché publiquement
               </p>
             </div>
 

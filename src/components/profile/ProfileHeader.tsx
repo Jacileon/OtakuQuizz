@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { RankBadge } from '@/components/ui/RankBadge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Heart, Edit, Clock } from 'lucide-react';
-import { getInitials } from '@/lib/utils';
+import { getInitials, getDisplayName } from '@/lib/utils';
 import Link from '../../../node_modules/next/link';
 
 interface ProfileHeaderProps {
@@ -24,13 +24,13 @@ export function ProfileHeader({ profile, stats, isOwnProfile }: ProfileHeaderPro
           <Avatar className="h-24 w-24 border-4 border-dark-card" style={{ borderColor: getRankColor(profile.rank) }}>
             <AvatarImage src={profile.avatar_url || undefined} />
             <AvatarFallback className="text-2xl bg-dark-surface">
-              {getInitials(profile.username)}
+              {getInitials(getDisplayName(profile))}
             </AvatarFallback>
           </Avatar>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="font-display text-2xl tracking-wider">{profile.username}</h1>
+              <h1 className="font-display text-2xl tracking-wider">{getDisplayName(profile)}</h1>
               <RankBadge rank={profile.rank} size="sm" />
             </div>
 

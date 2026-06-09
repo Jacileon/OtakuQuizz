@@ -122,13 +122,11 @@ export async function requireAdmin() {
 }
 
 export async function updateProfile(formData: {
-  username?: string;
   nickname?: string;
   bio?: string;
   country?: string;
   phone?: string;
   favorite_anime?: string;
-  avatar_url?: string;
 }) {
   const supabase = createClient();
   const { data: { session }, error: authError } = await supabase.auth.getSession();
@@ -139,34 +137,12 @@ export async function updateProfile(formData: {
 
   const user = session.user;
 
-  if (formData.username) {
-    const { data: existing } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('username', formData.username)
-      .neq('id', user.id)
-      .maybeSingle();
-
-    if (existing) {
-      return { success: false, error: 'Ce username est déjà pris' };
-    }
-
-    if (formData.username.length < 3 || formData.username.length > 30) {
-      return { success: false, error: 'Le username doit avoir entre 3 et 30 caractères' };
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      return { success: false, error: 'Le username ne peut contenir que des lettres, chiffres et underscores' };
-    }
-  }
-
   const updates: any = {};
-  if (formData.username !== undefined) updates.username = formData.username;
   if (formData.nickname !== undefined) updates.nickname = formData.nickname || null;
   if (formData.bio !== undefined) updates.bio = formData.bio || null;
   if (formData.country !== undefined) updates.country = formData.country || null;
   if (formData.phone !== undefined) updates.phone = formData.phone || null;
   if (formData.favorite_anime !== undefined) updates.favorite_anime = formData.favorite_anime || null;
-  if (formData.avatar_url !== undefined) updates.avatar_url = formData.avatar_url || null;
 
   const { error } = await supabase
     .from('user_profiles')
@@ -178,8 +154,53 @@ export async function updateProfile(formData: {
     return { success: false, error: 'Erreur lors de la mise à jour' };
   }
 
-  revalidatePath('/profile');
-  revalidatePath('/profile/edit');
-  return { success: true, error: null };
+  return { success: true };
+}
+
+export async function completeProfile(formData: {
+  nickname: string;
+  country?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const supabase = createClient();
+  const { data: { session }, error: authError } = await supabase.auth.getSession();
+
+  if (authError || !session?.user) {
+    return { success: false, error: 'Non authentifié' };
+  }
+
+  const user = session.user;
+
+  if (!formData.nickname || formData.nickname.length < 2) {
+    return { success: false, error: 'Le surnom doit faire au moins 2 caractères' };
+  }
+
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({
+      nickname: formData.nickname,
+      country: formData.country || null,
+    })
+    .eq('id', user.id);
+
+  if (error) {
+    console.error('Erreur complete profile:', error);
+    return { success: false, error: 'Erreur lors de la mise à jour' };
+  }
+
+  return { success: true };
+}
+
+export async function isProfileComplete(): Promise<boolean> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('nickname')
+    .eq('id', user.id)
+    .single();
+
+  return !!profile?.nickname;
 }
 

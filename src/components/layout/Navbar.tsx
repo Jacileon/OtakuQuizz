@@ -29,7 +29,7 @@ import {
   Users,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
-import { getInitials } from '@/lib/utils';
+import { getInitials, getDisplayName } from '@/lib/utils';
 import { usePendingRequestsCount } from '@/lib/hooks/useFriends';
 
 const navLinks = [
@@ -113,16 +113,16 @@ export function Navbar() {
                     <Avatar className="h-8 w-8 border-2" style={{ borderColor: profile ? getRankColor(profile.rank) : '#888' }}>
                       <AvatarImage src={profile?.avatar_url || undefined} />
                       <AvatarFallback className="text-xs bg-dark-surface">
-                        {profile ? getInitials(profile.username) : '?'}
+                        {profile ? getInitials(getDisplayName(profile)) : '?'}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden sm:inline text-sm font-medium">{profile?.username}</span>
+                    <span className="hidden sm:inline text-sm font-medium">{profile ? getDisplayName(profile) : ''}</span>
                     {profile && <RankBadge rank={profile.rank} size="sm" />}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
                   <div className="px-3 py-2">
-                    <p className="font-medium text-sm">{profile?.username}</p>
+                    <p className="font-medium text-sm">{profile ? getDisplayName(profile) : ''}</p>
                     <p className="text-xs text-muted-foreground">{profile?.email}</p>
                     {profile && (
                       <div className="mt-2">
