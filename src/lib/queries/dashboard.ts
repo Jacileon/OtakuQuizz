@@ -16,23 +16,25 @@ export async function getDashboardStats(userId: string) {
     .eq('user_id', userId)
     .single();
 
-  const { data: recentSessions } = await supabase
-    .from('game_sessions')
-    .select('*')
-    .eq('user_id', userId)
-    .not('completed_at', 'is', null)
-    .gte('completed_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
-    .order('completed_at', { ascending: false });
+  // Compter les quiz joués ce mois via RPC
+  const { data: history } = await supabase
+    .rpc('get_user_game_history', { p_user_id: userId });
 
-  const monthlyQuizzes = recentSessions?.length || 0;
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthlyQuizzes = (history || []).filter((h: any) => 
+    new Date(h.completed_at) >= monthStart
+  ).length;
+
   const bestScore = stats?.best_score_ever || 0;
   const accuracy = stats?.accuracy_rate || 0;
+  const totalPlayed = stats?.quizzes_played || 0;
 
   const { data: monthlyRank } = await supabase
     .from('leaderboard_monthly')
     .select('rank_position')
     .eq('user_id', userId)
-    .eq('month_year', `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`)
+    .eq('month_year', `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
     .single();
 
   return {
@@ -40,6 +42,7 @@ export async function getDashboardStats(userId: string) {
     bestScore,
     accuracy,
     monthlyRank: monthlyRank?.rank_position || null,
+    totalPlayed,
   };
 }
 

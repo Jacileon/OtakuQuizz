@@ -21,9 +21,12 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { sessionId, answers } = body;
 
-    if (!sessionId || !Array.isArray(answers)) {
+    if (!sessionId) {
       return NextResponse.json({ error: 'Données invalides' }, { status: 400 });
     }
+
+    // Permettre un tableau vide (aucune réponse)
+    const safeAnswers = Array.isArray(answers) ? answers : [];
 
     // Vérifier que la session appartient à l'utilisateur
     const { data: session } = await supabase
@@ -55,11 +58,11 @@ export async function POST(request: Request) {
     }
 
     // Récupérer les bonnes réponses depuis la BDD (jamais exposées au client)
-    const questionIds = answers.map((a: any) => a.questionId);
-    const { data: correctAnswers } = await supabase
+    const questionIds = safeAnswers.map((a: any) => a.questionId);
+    const { data: correctAnswers } = questionIds.length > 0 ? await supabase
       .from('answers')
       .select('id, question_id, is_correct')
-      .in('question_id', questionIds);
+      .in('question_id', questionIds) : { data: [] };
 
     const correctMap = new Map();
     correctAnswers?.forEach((a) => {
@@ -67,10 +70,10 @@ export async function POST(request: Request) {
     });
 
     // Récupérer les types de questions
-    const { data: questionsData } = await supabase
+    const { data: questionsData } = questionIds.length > 0 ? await supabase
       .from('questions')
       .select('id, question_type, time_limit_seconds')
-      .in('id', questionIds);
+      .in('id', questionIds) : { data: [] };
 
     const questionTypeMap = new Map();
     questionsData?.forEach((q) => {
@@ -88,7 +91,7 @@ export async function POST(request: Request) {
     let maxStreak = 0;
     const playerAnswers = [];
 
-    for (const answer of answers) {
+    for (const answer of safeAnswers) {
       const correctAnswerId = correctMap.get(answer.questionId);
       const isCorrect = answer.answerId === correctAnswerId;
       const questionInfo = questionTypeMap.get(answer.questionId);
@@ -137,13 +140,15 @@ export async function POST(request: Request) {
       });
     }
 
-    const totalQuestions = answers.length;
+    const totalQuestions = session.total_questions;
     const accuracyRate = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-    const isPerfect = correctCount === totalQuestions;
-    const totalTimeMs = answers.reduce((sum: number, a: any) => sum + a.timeMs, 0);
+    const isPerfect = correctCount === totalQuestions && totalQuestions > 0;
+    const totalTimeMs = safeAnswers.reduce((sum: number, a: any) => sum + (a.timeMs || 0), 0);
 
-    // Enregistrer les réponses en base
-    await supabase.from('player_answers').insert(playerAnswers);
+    // Enregistrer les réponses en base (seulement s'il y en a)
+    if (playerAnswers.length > 0) {
+      await supabase.from('player_answers').insert(playerAnswers);
+    }
 
     // Mettre à jour la session
     await supabase
