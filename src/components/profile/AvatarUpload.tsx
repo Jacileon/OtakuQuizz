@@ -57,7 +57,13 @@ export function AvatarUpload({ currentAvatarUrl, username, onUpload }: AvatarUpl
       // Mettre à jour le profil avec l'URL Cloudinary
       await updateProfile({ avatar_url: result.url } as any);
       
-      onUpload(result.url);
+      // Ajouter un timestamp pour forcer le rechargement de l'image
+      const urlWithTimestamp = `${result.url}?t=${Date.now()}`;
+      onUpload(urlWithTimestamp);
+      
+      // Recharger la page pour mettre à jour le Navbar
+      window.location.reload();
+      
       toast({ title: 'Avatar mis à jour' });
     } catch (error: any) {
       console.error('Erreur upload avatar:', error);

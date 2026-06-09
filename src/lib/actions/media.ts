@@ -81,6 +81,8 @@ export async function uploadAvatar(
       ],
     });
 
+    console.log('Cloudinary upload result:', result.secure_url);
+
     return {
       url: result.secure_url,
       publicId: result.public_id,
