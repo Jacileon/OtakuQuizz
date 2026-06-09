@@ -72,11 +72,12 @@ export default async function ProfilPage() {
       quiz:quiz_id(title, thumbnail_url, category, series)
     `)
     .eq('user_id', user.id)
-    .not('completed_at', 'is', null)
+    .neq('completed_at', null)
     .order('completed_at', { ascending: false })
     .limit(50);
 
   console.log('Game history count:', gameHistory?.length);
+  console.log('User ID:', user.id);
 
   return (
     <div className="p-4 lg:p-8 pb-24 md:pb-8">
