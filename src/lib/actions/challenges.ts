@@ -125,10 +125,11 @@ export async function inviteToChallenge(sessionId: string, friendId: string): Pr
     .single();
 
   if (conversation) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://otaku-quiz-africa.vercel.app';
     await supabase.from('messages').insert({
       conversation_id: conversation.id,
       sender_id: user.id,
-      content: `⚔️ Vous ai défié sur un quiz ! Cliquez ici pour voir le défi : /challenges/${sessionId}`,
+      content: `⚔️ ${inviterName} vous a défié sur un quiz ! Cliquez pour voir : ${siteUrl}/challenges/${sessionId}`,
     });
   }
 
