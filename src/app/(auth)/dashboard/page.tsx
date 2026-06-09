@@ -64,8 +64,8 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={<Gamepad2 className="h-5 w-5" />}
-          label="Quiz ce mois"
-          value={stats.monthlyQuizzes.toString()}
+          label="Quiz joués"
+          value={(stats.totalPlayed || 0).toString()}
           color="brand"
         />
         <StatCard
