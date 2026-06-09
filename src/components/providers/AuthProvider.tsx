@@ -59,6 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq('id', session.user.id)
             .single();
           setProfile(data as UserProfile | null);
+
+          // Vérifier le streak de connexion
+          if (data) {
+            const { checkAndUpdateStreak } = await import('@/lib/actions/streak');
+            const streakResult = await checkAndUpdateStreak();
+            if (streakResult.isNew && streakResult.message) {
+              // Afficher un toast pour le streak
+              const { toast } = await import('@/lib/hooks/useToast');
+              toast({ title: streakResult.message });
+            }
+          }
         } catch (e: any) {
           console.error('[AuthProvider] ❌ profile fetch EXCEPTION:', e?.message ?? e);
         }

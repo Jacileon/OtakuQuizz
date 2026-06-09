@@ -5,8 +5,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { RankBadge } from '@/components/ui/RankBadge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Heart, Edit, Clock } from 'lucide-react';
+import { MapPin, Heart, Edit, Clock, Flame } from 'lucide-react';
 import { getInitials, getDisplayName } from '@/lib/utils';
+import { RankProgressBar } from './RankProgressBar';
 import Link from '../../../node_modules/next/link';
 
 interface ProfileHeaderProps {
@@ -53,6 +54,15 @@ export function ProfileHeader({ profile, stats, isOwnProfile }: ProfileHeaderPro
             {profile.bio && (
               <p className="mt-2 text-sm">{profile.bio}</p>
             )}
+
+            {/* Streak */}
+            {profile.current_streak > 0 && (
+              <div className="flex items-center gap-2 mt-2 text-sm">
+                <Flame className="h-4 w-4 text-orange-500" />
+                <span className="text-orange-500 font-medium">{profile.current_streak} jours</span>
+                <span className="text-muted-foreground">• Record : {profile.longest_streak} jours</span>
+              </div>
+            )}
           </div>
 
           {isOwnProfile && (
@@ -62,6 +72,11 @@ export function ProfileHeader({ profile, stats, isOwnProfile }: ProfileHeaderPro
               </Button>
             </Link>
           )}
+        </div>
+
+        {/* Barre de progression du rang */}
+        <div className="mt-6">
+          <RankProgressBar currentXP={profile.xp} currentRank={profile.rank} />
         </div>
       </CardContent>
     </Card>

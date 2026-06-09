@@ -175,6 +175,27 @@ export async function completeProfile(formData: {
     return { success: false, error: 'Le surnom doit faire au moins 2 caractères' };
   }
 
+  // Validation téléphone côté serveur
+  if (formData.phone) {
+    const cleanedPhone = formData.phone.replace(/[\s\-]/g, '');
+    const phoneRegex = /^\+[1-9]\d{7,14}$/;
+    if (!phoneRegex.test(cleanedPhone)) {
+      return { success: false, error: 'Numéro invalide. Format attendu : +XXX suivi des chiffres (ex : +22670000000)' };
+    }
+    formData.phone = cleanedPhone;
+  }
+
+  // Vérifier si l'utilisateur a déjà un numéro
+  const { data: existingProfile } = await supabase
+    .from('user_profiles')
+    .select('phone')
+    .eq('id', user.id)
+    .single();
+
+  if (existingProfile?.phone) {
+    return { success: false, error: 'Le numéro de téléphone ne peut pas être modifié. Contactez le support.' };
+  }
+
   const { error } = await supabase
     .from('user_profiles')
     .update({

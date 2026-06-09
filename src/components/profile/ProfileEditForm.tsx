@@ -10,7 +10,7 @@ import { updateProfile } from '@/lib/auth/actions';
 import { UserProfile } from '@/types';
 import { toast } from '@/lib/hooks/useToast';
 import { getInitials } from '@/lib/utils';
-import { Camera, User, Save, Loader2 } from 'lucide-react';
+import { Camera, User, Save, Loader2, Lock } from 'lucide-react';
 
 const AFRICAN_COUNTRIES = [
   'Algérie',
@@ -202,14 +202,36 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
             {/* Téléphone */}
             <div>
               <label className="text-sm font-medium mb-1 block">Numéro de téléphone</label>
-              <Input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ex: +225 07 07 07 07"
-                className="bg-dark-surface"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Optionnel, avec l'indicatif pays</p>
+              {profile.phone ? (
+                <div className="relative">
+                  <Input
+                    type="tel"
+                    value={profile.phone}
+                    className="bg-dark-surface opacity-60 cursor-not-allowed"
+                    disabled
+                    readOnly
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              ) : (
+                <Input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Ex: +225 07 07 07 07"
+                  className="bg-dark-surface"
+                />
+              )}
+              {profile.phone ? (
+                <p className="text-xs text-orange-500 mt-1 flex items-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  Pour modifier votre numéro, contactez le support.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Avec l'indicatif pays</p>
+              )}
             </div>
 
             {/* Anime préféré */}

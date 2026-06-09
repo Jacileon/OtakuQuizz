@@ -6,6 +6,7 @@
 import { NextResponse } from '../../../../../node_modules/next/server';
 import { createClient } from '@/lib/supabase/server';
 import { calculateScore } from '@/lib/utils';
+import { calculateQuestionXP, getUserAttemptNumber, recordQuizAttempt, recordQuestionAttempt, addXP } from '@/lib/utils/xp';
 import { QuizSubmitResult } from '@/types';
 
 export async function POST(request: Request) {
@@ -52,8 +53,23 @@ export async function POST(request: Request) {
       if (a.is_correct) correctMap.set(a.question_id, a.id);
     });
 
-    // Calculer le score pour chaque réponse
+    // Récupérer les types de questions
+    const { data: questionsData } = await supabase
+      .from('questions')
+      .select('id, question_type, time_limit_seconds')
+      .in('id', questionIds);
+
+    const questionTypeMap = new Map();
+    questionsData?.forEach((q) => {
+      questionTypeMap.set(q.id, { type: q.question_type, timeLimit: q.time_limit_seconds || 30 });
+    });
+
+    // Numéro de tentative
+    const attemptNumber = await getUserAttemptNumber(user.id, session.quiz_id);
+
+    // Calculer le score et l'XP pour chaque réponse
     let totalScore = 0;
+    let totalXP = 0;
     let correctCount = 0;
     let streak = 0;
     let maxStreak = 0;
@@ -62,13 +78,9 @@ export async function POST(request: Request) {
     for (const answer of answers) {
       const correctAnswerId = correctMap.get(answer.questionId);
       const isCorrect = answer.answerId === correctAnswerId;
-      const question = await supabase
-        .from('questions')
-        .select('time_limit_seconds')
-        .eq('id', answer.questionId)
-        .single();
-
-      const timeLimitMs = (question.data?.time_limit_seconds || 30) * 1000;
+      const questionInfo = questionTypeMap.get(answer.questionId);
+      const questionType = questionInfo?.type || 'text';
+      const timeLimitMs = (questionInfo?.timeLimit || 30) * 1000;
 
       if (isCorrect) {
         streak++;
@@ -80,6 +92,27 @@ export async function POST(request: Request) {
 
       const points = calculateScore(isCorrect, answer.timeMs, timeLimitMs, streak);
       totalScore += points;
+
+      // Calculer l'XP pour cette question
+      const xpForQuestion = await calculateQuestionXP(
+        user.id,
+        session.quiz_id,
+        answer.questionId,
+        questionType,
+        isCorrect,
+        attemptNumber
+      );
+      totalXP += xpForQuestion;
+
+      // Enregistrer la tentative de question
+      await recordQuestionAttempt(
+        user.id,
+        session.quiz_id,
+        answer.questionId,
+        attemptNumber,
+        isCorrect,
+        xpForQuestion
+      );
 
       playerAnswers.push({
         session_id: sessionId,
@@ -112,6 +145,21 @@ export async function POST(request: Request) {
       })
       .eq('id', sessionId);
 
+    // Enregistrer la tentative de quiz
+    await recordQuizAttempt(user.id, session.quiz_id, attemptNumber, totalScore, totalXP);
+
+    // Attribuer l'XP
+    if (totalXP > 0) {
+      await addXP(user.id, totalXP, 'quiz', session.quiz_id);
+    }
+
+    // Mettre à jour le classement du quiz
+    await supabase.from('leaderboard_monthly').upsert({
+      user_id: user.id,
+      month_year: new Date().toISOString().slice(0, 7),
+      score: totalScore,
+    }, { onConflict: 'user_id,month_year' });
+
     // Vérifier et attribuer les badges (via fonction SQL)
     const { data: newBadges } = await supabase
       .rpc('check_and_award_badges', { target_user_id: user.id });
@@ -122,7 +170,7 @@ export async function POST(request: Request) {
       totalQuestions,
       accuracyRate: accuracyRate,
       isPerfect,
-      xpEarned: totalScore,
+      xpEarned: totalXP,
       newBadges: newBadges || [],
     };
 
@@ -135,4 +183,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

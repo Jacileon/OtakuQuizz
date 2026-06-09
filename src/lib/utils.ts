@@ -4,7 +4,7 @@
 
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Rank, RankConfig } from '@/types';
+import { Rank, RankConfigData } from '@/types';
 import { RANKS, RANK_COLORS } from './constants';
 
 export function cn(...inputs: ClassValue[]): string {
@@ -20,7 +20,7 @@ export function getRankFromXP(xp: number): Rank {
   return 'F';
 }
 
-export function getRankConfig(rank: Rank): RankConfig | undefined {
+export function getRankConfig(rank: Rank): RankConfigData | undefined {
   return RANKS.find((r) => r.rank === rank);
 }
 

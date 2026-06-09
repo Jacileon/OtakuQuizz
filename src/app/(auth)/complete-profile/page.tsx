@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { completeProfile } from '@/lib/auth/actions';
 import { toast } from '@/lib/hooks/useToast';
-import { Loader2, User, ArrowRight } from 'lucide-react';
+import { Loader2, User, ArrowRight, Phone } from 'lucide-react';
 
 export default function CompleteProfilePage() {
   const router = useRouter();
@@ -15,6 +15,7 @@ export default function CompleteProfilePage() {
   const [nickname, setNickname] = useState('');
   const [phone, setPhone] = useState('');
   const [country, setCountry] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   const AFRICAN_COUNTRIES = [
     'Algérie', 'Angola', 'Bénin', 'Botswana', 'Burkina Faso', 'Burundi',
@@ -28,6 +29,26 @@ export default function CompleteProfilePage() {
     'Tanzanie', 'Tchad', 'Togo', 'Tunisie', 'Zambie', 'Zimbabwe', 'Autre'
   ];
 
+  const validatePhone = (value: string): boolean => {
+    const cleaned = value.replace(/[\s\-]/g, '');
+    const regex = /^\+[1-9]\d{7,14}$/;
+    if (!regex.test(cleaned)) {
+      setPhoneError('Numéro invalide. Format attendu : +XXX suivi des chiffres (ex : +22670000000)');
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    if (value.length > 3) {
+      validatePhone(value);
+    } else {
+      setPhoneError('');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nickname.trim() || nickname.length < 2) {
@@ -35,9 +56,15 @@ export default function CompleteProfilePage() {
       return;
     }
 
+    if (!validatePhone(phone)) {
+      toast({ title: 'Erreur', description: phoneError, variant: 'destructive' });
+      return;
+    }
+
     try {
       setLoading(true);
-      const result = await completeProfile({ nickname, phone, country });
+      const cleanedPhone = phone.replace(/[\s\-]/g, '');
+      const result = await completeProfile({ nickname, phone: cleanedPhone, country });
       if (result.success) {
         toast({ title: 'Profil complété !', description: 'Bienvenue sur Otaku Quiz Africa !' });
         router.push('/dashboard');
@@ -82,17 +109,25 @@ export default function CompleteProfilePage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-1 block">Numéro de téléphone *</label>
+              <label className="text-sm font-medium mb-1 block flex items-center gap-1">
+                <Phone className="h-3 w-3" />
+                Numéro de téléphone *
+              </label>
               <Input
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ex: +225 07 07 07 07"
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                placeholder="+22670000000"
                 required
+                className={phoneError ? 'border-destructive' : ''}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Avec l'indicatif pays
-              </p>
+              {phoneError ? (
+                <p className="text-xs text-destructive mt-1">{phoneError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Format : +XXX suivi des chiffres (ex : +22670000000)
+                </p>
+              )}
             </div>
 
             <div>
@@ -109,7 +144,11 @@ export default function CompleteProfilePage() {
               </select>
             </div>
 
-            <Button type="submit" className="w-full gap-2" disabled={loading || nickname.length < 2 || !phone}>
+            <Button 
+              type="submit" 
+              className="w-full gap-2" 
+              disabled={loading || nickname.length < 2 || !phone || !!phoneError}
+            >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

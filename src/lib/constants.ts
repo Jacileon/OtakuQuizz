@@ -2,9 +2,9 @@
 // CONSTANTS OTAKU QUIZ AFRICA
 // ============================================================
 
-import { RankConfig } from '@/types';
+import { RankConfigData } from '@/types';
 
-export const RANKS: RankConfig[] = [
+export const RANKS: RankConfigData[] = [
   { rank: 'F', minXP: 0, maxXP: 99, color: '#888888', bgColor: 'bg-rank-f', label: 'Novice' },
   { rank: 'E', minXP: 100, maxXP: 499, color: '#4CAF50', bgColor: 'bg-rank-e', label: 'Apprenti' },
   { rank: 'D', minXP: 500, maxXP: 1499, color: '#2196F3', bgColor: 'bg-rank-d', label: 'Initié' },

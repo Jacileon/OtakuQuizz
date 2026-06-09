@@ -5,7 +5,7 @@
 // === RANGS ===
 export type Rank = 'F' | 'E' | 'D' | 'C' | 'B' | 'A' | 'S' | 'S+' | 'SS' | 'SSS' | 'Légende';
 
-export type RankConfig = {
+export type RankConfigData = {
   rank: Rank;
   minXP: number;
   maxXP: number | null;
@@ -31,6 +31,10 @@ export type UserProfile = {
   is_premium: boolean;
   is_admin: boolean;
   can_create_quiz: boolean;
+  current_streak: number;
+  longest_streak: number;
+  last_login_date: string | null;
+  total_xp: number;
   created_at: string;
   updated_at: string;
 };
@@ -531,12 +535,45 @@ export type Announcement = {
   quiz?: Quiz;
 };
 
-// === APP CONFIG ===
-export type AppConfig = {
-  key: string;
-  value: any;
-  updated_at: string;
-  updated_by: string | null;
+// === RANK CONFIG ===
+export type RankConfigEntry = {
+  id: string;
+  rank_label: string;
+  xp_required: number;
+  display_order: number;
+};
+
+// === USER QUIZ ATTEMPT ===
+export type UserQuizAttempt = {
+  id: string;
+  user_id: string;
+  quiz_id: string;
+  attempt_number: number;
+  score: number;
+  xp_earned: number;
+  completed_at: string;
+};
+
+// === USER QUESTION ATTEMPT ===
+export type UserQuestionAttempt = {
+  id: string;
+  user_id: string;
+  quiz_id: string;
+  question_id: string;
+  attempt_number: number;
+  is_correct: boolean;
+  xp_earned: number;
+  created_at: string;
+};
+
+// === XP TRANSACTION ===
+export type XpTransaction = {
+  id: string;
+  user_id: string;
+  source: 'quiz' | 'streak' | 'challenge' | 'event';
+  source_id: string | null;
+  amount: number;
+  created_at: string;
 };
 
 // === FAQ ===
