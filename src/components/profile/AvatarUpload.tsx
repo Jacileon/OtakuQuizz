@@ -55,16 +55,18 @@ export function AvatarUpload({ currentAvatarUrl, username, onUpload }: AvatarUpl
       }
 
       // Mettre à jour le profil avec l'URL Cloudinary
-      await updateProfile({ avatar_url: result.url } as any);
+      await updateProfile({ avatar_url: result.url });
       
       // Ajouter un timestamp pour forcer le rechargement de l'image
       const urlWithTimestamp = `${result.url}?t=${Date.now()}`;
       onUpload(urlWithTimestamp);
       
-      // Recharger la page pour mettre à jour le Navbar
-      window.location.reload();
-      
       toast({ title: 'Avatar mis à jour' });
+      
+      // Recharger la page après un court délai pour que le toast s'affiche
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error: any) {
       console.error('Erreur upload avatar:', error);
       toast({ title: 'Erreur', description: error.message || 'Impossible de mettre à jour l\'avatar', variant: 'destructive' });
