@@ -128,6 +128,7 @@ export async function updateProfile(formData: {
   country?: string;
   phone?: string;
   favorite_anime?: string;
+  avatar_url?: string;
 }) {
   const supabase = createClient();
   const { data: { session }, error: authError } = await supabase.auth.getSession();
@@ -165,6 +166,7 @@ export async function updateProfile(formData: {
   if (formData.country !== undefined) updates.country = formData.country || null;
   if (formData.phone !== undefined) updates.phone = formData.phone || null;
   if (formData.favorite_anime !== undefined) updates.favorite_anime = formData.favorite_anime || null;
+  if (formData.avatar_url !== undefined) updates.avatar_url = formData.avatar_url || null;
 
   const { error } = await supabase
     .from('user_profiles')
