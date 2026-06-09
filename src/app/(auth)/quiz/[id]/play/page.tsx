@@ -5,14 +5,40 @@
 import { redirect } from '../../../../../../node_modules/next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth/actions';
+import { checkProfileComplete } from '@/lib/actions/profile-check';
 import { QuizEngine } from '@/components/quiz/QuizEngine';
 import { QuestionClient } from '@/types';
 import { shuffleArray } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { User, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default async function QuizPlayPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  // Vérifier si le profil est complet
+  const { complete, missing } = await checkProfileComplete();
+  if (!complete) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-dark p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-8 text-center">
+            <User className="h-12 w-12 text-orange-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Profil incomplet</h2>
+            <p className="text-muted-foreground mb-6">{missing}</p>
+            <Link href="/complete-profile">
+              <Button className="gap-2">
+                Compléter mon profil <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const supabase = createClient();
 

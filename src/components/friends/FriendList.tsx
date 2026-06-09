@@ -13,14 +13,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { UserMinus, Loader2, Users, MessageCircle } from 'lucide-react';
+import { UserMinus, Loader2, Users, MessageCircle, Flag } from 'lucide-react';
 import { useFriends } from '@/lib/hooks/useFriends';
+import { ReportUserDialog } from './ReportUserDialog';
 import Link from 'next/link';
 
 export function FriendList({ onOpenChat }: { onOpenChat?: (friendId: string) => void }) {
   const { friends, loading, remove } = useFriends();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [reportUser, setReportUser] = useState<{ id: string; username: string } | null>(null);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -85,6 +87,14 @@ export function FriendList({ onOpenChat }: { onOpenChat?: (friendId: string) => 
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() => setReportUser({ id: friendship.friend.id, username: friendship.friend.username })}
+                  className="text-orange-500 hover:text-orange-500"
+                >
+                  <Flag className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setDeleteId(friendship.id)}
                   className="text-destructive hover:text-destructive"
                 >
@@ -115,6 +125,15 @@ export function FriendList({ onOpenChat }: { onOpenChat?: (friendId: string) => 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {reportUser && (
+        <ReportUserDialog
+          userId={reportUser.id}
+          username={reportUser.username}
+          open={!!reportUser}
+          onOpenChange={() => setReportUser(null)}
+        />
+      )}
     </>
   );
 }

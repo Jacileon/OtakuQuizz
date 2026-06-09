@@ -30,6 +30,7 @@ export type UserProfile = {
   rank: Rank;
   is_premium: boolean;
   is_admin: boolean;
+  can_create_quiz: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -528,5 +529,24 @@ export type Announcement = {
   created_at: string;
   updated_at: string;
   quiz?: Quiz;
+};
+
+// === APP CONFIG ===
+export type AppConfig = {
+  key: string;
+  value: any;
+  updated_at: string;
+  updated_by: string | null;
+};
+
+// === FAQ ===
+export type FaqEntry = {
+  id: string;
+  theme: string;
+  question: string;
+  answer: string;
+  order_index: number;
+  visible: boolean;
+  created_at: string;
 };
 

@@ -48,3 +48,34 @@ export async function reportQuiz(
   }
 }
 
+export async function reportUser(
+  userId: string,
+  reason: string,
+  description?: string
+): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Non authentifié');
+
+  // Vérifier si déjà signalé
+  const { data: existing } = await supabase
+    .from('user_reports')
+    .select('id')
+    .eq('reporter_id', user.id)
+    .eq('reported_user_id', userId)
+    .single();
+
+  if (existing) {
+    throw new Error('Vous avez déjà signalé cet utilisateur');
+  }
+
+  const { error } = await supabase.from('user_reports').insert({
+    reporter_id: user.id,
+    reported_user_id: userId,
+    reason,
+    description: description || null,
+  });
+
+  if (error) throw new Error('Erreur lors du signalement');
+}
+

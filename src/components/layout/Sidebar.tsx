@@ -2,7 +2,7 @@
 
 import Link from '../../../node_modules/next/link';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, Flame } from 'lucide-react';
+import { TrendingUp, Flame, HelpCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { LeaderboardEntry } from '@/types';
@@ -75,6 +75,17 @@ export function Sidebar() {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* FAQ Link */}
+      <div>
+        <Link
+          href="/faq"
+          className="flex items-center gap-2 p-3 rounded-lg hover:bg-dark-surface transition-colors"
+        >
+          <HelpCircle className="h-5 w-5 text-muted-foreground" />
+          <span className="text-sm">FAQ - Aide</span>
+        </Link>
       </div>
     </div>
   );

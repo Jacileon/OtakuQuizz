@@ -464,14 +464,14 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
 
         {/* Affichage des éléments pour impostor */}
         {isImpostor && currentQuestion && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(currentQuestion.find_odd_data?.items || []).map((item, i) => (
               <button
                 key={i}
                 onClick={() => handleItemSelect(i)}
                 disabled={quizStatus !== 'playing' || isAnswered}
                 className={cn(
-                  'p-4 rounded-lg border-2 transition-all duration-200',
+                  'min-h-[56px] p-4 rounded-lg border-2 transition-all duration-200 flex items-center justify-center',
                   selectedItemIndex === i
                     ? 'border-brand bg-brand/10 shadow-lg shadow-brand/10'
                     : 'border-dark-border bg-dark-card hover:border-brand/50 hover:bg-dark-surface'
@@ -484,7 +484,7 @@ export function QuizEngine({ quizId, sessionId, questions, isOfficial, quizTitle
                     className="w-full h-32 object-cover rounded-lg"
                   />
                 ) : (
-                  <p className="text-lg font-medium text-center">{item.content || '?'}</p>
+                  <p className="text-base font-medium text-center break-words">{item.content || '?'}</p>
                 )}
               </button>
             ))}
