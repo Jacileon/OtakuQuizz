@@ -56,7 +56,7 @@ export default async function ProfilPage() {
   ]);
 
   // Récupérer l'historique des parties jouées
-  const { data: gameHistory } = await supabase
+  const { data: gameHistory, error: historyError } = await supabase
     .from('game_sessions')
     .select(`
       id,
@@ -76,7 +76,7 @@ export default async function ProfilPage() {
     .order('completed_at', { ascending: false })
     .limit(50);
 
-  console.log('Game history count:', gameHistory?.length);
+  console.log('Game history count:', gameHistory?.length, 'error:', historyError);
   console.log('User ID:', user.id);
 
   return (

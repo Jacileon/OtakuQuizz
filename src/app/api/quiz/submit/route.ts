@@ -182,6 +182,42 @@ export async function POST(request: Request) {
       console.log('Leaderboard mis à jour avec succès');
     }
 
+    // Mettre à jour les stats utilisateur
+    console.log('Updating user stats');
+    const { data: existingStats } = await supabase
+      .from('user_stats')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingStats) {
+      // Mettre à jour les stats existantes
+      await supabase
+        .from('user_stats')
+        .update({
+          quizzes_played: (existingStats.quizzes_played || 0) + 1,
+          total_correct_answers: (existingStats.total_correct_answers || 0) + correctCount,
+          total_answers: (existingStats.total_answers || 0) + totalQuestions,
+          accuracy_rate: Math.round(((existingStats.total_correct_answers || 0) + correctCount) / ((existingStats.total_answers || 0) + totalQuestions) * 100),
+          best_score_ever: Math.max(existingStats.best_score_ever || 0, totalScore),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+    } else {
+      // Créer les stats
+      await supabase
+        .from('user_stats')
+        .insert({
+          user_id: user.id,
+          quizzes_played: 1,
+          total_correct_answers: correctCount,
+          total_answers: totalQuestions,
+          accuracy_rate: accuracyRate,
+          best_score_ever: totalScore,
+        });
+    }
+    console.log('User stats updated');
+
     // Vérifier et attribuer les badges (via fonction SQL)
     const { data: newBadges } = await supabase
       .rpc('check_and_award_badges', { target_user_id: user.id });
