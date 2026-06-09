@@ -157,11 +157,17 @@ export async function POST(request: Request) {
 
     // Mettre à jour le classement du quiz
     console.log('Updating leaderboard');
-    await supabase.from('leaderboard_monthly').upsert({
+    const { error: leaderboardError } = await supabase.from('leaderboard_monthly').upsert({
       user_id: user.id,
       month_year: new Date().toISOString().slice(0, 7),
       score: totalScore,
     }, { onConflict: 'user_id,month_year' });
+
+    if (leaderboardError) {
+      console.error('Erreur leaderboard:', leaderboardError);
+    } else {
+      console.log('Leaderboard mis à jour avec succès');
+    }
 
     // Vérifier et attribuer les badges (via fonction SQL)
     const { data: newBadges } = await supabase
