@@ -2,10 +2,10 @@
 
 import { useState, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Camera, Loader2 } from 'lucide-react';
 import { toast } from '@/lib/hooks/useToast';
-import { createClient } from '@/lib/supabase/client';
+import { uploadAvatar } from '@/lib/actions/media';
+import { updateProfile } from '@/lib/auth/actions';
 import { getInitials } from '@/lib/utils';
 
 interface AvatarUploadProps {
@@ -38,41 +38,24 @@ export function AvatarUpload({ currentAvatarUrl, username, onUpload }: AvatarUpl
     try {
       setUploading(true);
 
-      // Créer un aperçu
+      // Créer un aperçu local
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviewUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
 
-      // Upload vers Supabase Storage
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Non authentifié');
+      // Upload vers Cloudinary
+      const result = await uploadAvatar(file);
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      if ('error' in result) {
+        throw new Error(result.error);
+      }
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      // Récupérer l'URL publique
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(fileName);
-
-      // Mettre à jour le profil
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
-
-      onUpload(publicUrl);
+      // Mettre à jour le profil avec l'URL Cloudinary
+      await updateProfile({ avatar_url: result.url } as any);
+      
+      onUpload(result.url);
       toast({ title: 'Avatar mis à jour' });
     } catch (error: any) {
       console.error('Erreur upload avatar:', error);

@@ -61,3 +61,30 @@ export async function deleteMedia(publicId: string): Promise<void> {
   }
 }
 
+export async function uploadAvatar(
+  file: File
+): Promise<{ url: string; publicId: string } | { error: string }> {
+  try {
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64 = buffer.toString('base64');
+    const dataURI = `data:${file.type};base64,${base64}`;
+
+    const result = await cloudinary.uploader.upload(dataURI, {
+      folder: 'otaku-quiz/avatars',
+      transformation: [
+        { width: 200, height: 200, crop: 'fill', gravity: 'face' },
+        { quality: 'auto', fetch_format: 'auto' },
+      ],
+    });
+
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+    };
+  } catch (error) {
+    console.error('Erreur upload avatar:', error);
+    return { error: 'Erreur upload avatar' };
+  }
+}
+
