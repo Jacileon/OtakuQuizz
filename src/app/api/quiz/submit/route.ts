@@ -41,6 +41,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Session déjà complétée' }, { status: 400 });
     }
 
+    // Vérifier si une tentative est déjà en cours (éviter les doubles soumissions)
+    const { data: existingAttempt } = await supabase
+      .from('user_quiz_attempts')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('quiz_id', session.quiz_id)
+      .eq('attempt_number', await getUserAttemptNumber(user.id, session.quiz_id))
+      .single();
+
+    if (existingAttempt) {
+      return NextResponse.json({ error: 'Tentative déjà enregistrée' }, { status: 400 });
+    }
+
     // Récupérer les bonnes réponses depuis la BDD (jamais exposées au client)
     const questionIds = answers.map((a: any) => a.questionId);
     const { data: correctAnswers } = await supabase

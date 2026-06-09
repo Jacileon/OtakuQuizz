@@ -62,16 +62,22 @@ export async function getUserAttemptNumber(
   try {
     const supabase = await createClient();
     
-    // Compter les tentatives existantes
-    const { data: attempts, error } = await supabase
+    // Récupérer le dernier numéro d'attempt
+    const { data: lastAttempt, error } = await supabase
       .from('user_quiz_attempts')
-      .select('id')
+      .select('attempt_number')
       .eq('user_id', userId)
-      .eq('quiz_id', quizId);
+      .eq('quiz_id', quizId)
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+      .single();
 
-    console.log('getUserAttemptNumber - attempts:', attempts?.length, 'error:', error);
+    console.log('getUserAttemptNumber - lastAttempt:', lastAttempt, 'error:', error);
     
-    return (attempts?.length || 0) + 1;
+    if (lastAttempt) {
+      return lastAttempt.attempt_number + 1;
+    }
+    return 1;
   } catch (error) {
     console.error('Erreur getUserAttemptNumber:', error);
     return 1;
