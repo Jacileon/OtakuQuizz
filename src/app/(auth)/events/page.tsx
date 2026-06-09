@@ -8,16 +8,19 @@ import { EventCard } from '@/components/events/EventCard';
 import { LiveEventBanner } from '@/components/events/LiveEventBanner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Zap, Calendar, History, Trophy, Shield, ArrowRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Zap, Calendar, History, Trophy, Shield, ArrowRight, Megaphone, ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth/actions';
+import { getActiveAnnouncements } from '@/lib/actions/announcements';
 
 export default async function EventsPage() {
-  const [active, upcoming, past, user] = await Promise.all([
+  const [active, upcoming, past, user, announcements] = await Promise.all([
     getActiveEvents(),
     getUpcomingEvents(),
     getPastEvents(1),
     getCurrentUser(),
+    getActiveAnnouncements(),
   ]);
 
   // Vérifier si l'utilisateur est admin
@@ -50,6 +53,54 @@ export default async function EventsPage() {
           <Zap className="h-8 w-8 text-brand" />
           ÉVÉNEMENTS
         </h1>
+
+        {/* Annonces */}
+        {announcements && announcements.length > 0 && (
+          <div>
+            <h2 className="font-display text-xl tracking-wider mb-4 flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-brand" />
+              ANNONCES
+            </h2>
+            <div className="space-y-4">
+              {announcements.map((announcement) => (
+                <Card key={announcement.id} className="border-brand/30 bg-gradient-to-r from-brand/5 to-transparent">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-4">
+                      {announcement.image_url ? (
+                        <img
+                          src={announcement.image_url}
+                          alt={announcement.title}
+                          className="w-20 h-20 object-cover rounded-lg shrink-0"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 rounded-lg bg-brand/10 flex items-center justify-center shrink-0">
+                          <Megaphone className="h-8 w-8 text-brand" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold">{announcement.title}</h3>
+                          <Badge variant="outline">{announcement.type}</Badge>
+                        </div>
+                        {announcement.description && (
+                          <p className="text-sm text-muted-foreground mb-2">{announcement.description}</p>
+                        )}
+                        {announcement.quiz && (
+                          <Link href={`/quiz/${announcement.quiz.id}`}>
+                            <Button size="sm" variant="outline" className="gap-1">
+                              <ExternalLink className="h-3 w-3" />
+                              Voir le quiz
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Quiz Officiels */}
         <div>

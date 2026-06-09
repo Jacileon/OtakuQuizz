@@ -510,3 +510,23 @@ export type OfficialLeaderboardEntry = {
   user?: UserProfile;
 };
 
+// === ANNOUNCEMENTS ===
+export type AnnouncementType = 'quiz' | 'event' | 'news';
+export type AnnouncementStatus = 'active' | 'scheduled' | 'expired';
+
+export type Announcement = {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  quiz_id: string | null;
+  type: AnnouncementType;
+  status: AnnouncementStatus;
+  starts_at: string;
+  ends_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  quiz?: Quiz;
+};
+
