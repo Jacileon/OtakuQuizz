@@ -146,14 +146,17 @@ export async function POST(request: Request) {
       .eq('id', sessionId);
 
     // Enregistrer la tentative de quiz
+    console.log('Recording quiz attempt:', { userId: user.id, quizId: session.quiz_id, attemptNumber, totalScore, totalXP });
     await recordQuizAttempt(user.id, session.quiz_id, attemptNumber, totalScore, totalXP);
 
     // Attribuer l'XP
+    console.log('Adding XP:', { userId: user.id, totalXP });
     if (totalXP > 0) {
       await addXP(user.id, totalXP, 'quiz', session.quiz_id);
     }
 
     // Mettre à jour le classement du quiz
+    console.log('Updating leaderboard');
     await supabase.from('leaderboard_monthly').upsert({
       user_id: user.id,
       month_year: new Date().toISOString().slice(0, 7),

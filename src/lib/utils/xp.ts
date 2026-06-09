@@ -23,30 +23,35 @@ export async function calculateQuestionXP(
 
   const baseXP = XP_BY_QUESTION_TYPE[questionType] || 1;
 
-  // Vérifier si la question a déjà été répondue correctement
-  const supabase = await createClient();
-  const { data: previousCorrect } = await supabase
-    .from('user_question_attempts')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('quiz_id', quizId)
-    .eq('question_id', questionId)
-    .eq('is_correct', true)
-    .limit(1);
+  try {
+    // Vérifier si la question a déjà été répondue correctement
+    const supabase = await createClient();
+    const { data: previousCorrect } = await supabase
+      .from('user_question_attempts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('quiz_id', quizId)
+      .eq('question_id', questionId)
+      .eq('is_correct', true)
+      .limit(1);
 
-  if (previousCorrect && previousCorrect.length > 0) {
-    return 0; // Déjà gagné, pas d'XP
-  }
+    if (previousCorrect && previousCorrect.length > 0) {
+      return 0; // Déjà gagné, pas d'XP
+    }
 
-  // Calculer la dégressivité
-  if (attemptNumber === 1) {
-    return baseXP;
-  } else if (attemptNumber === 2) {
-    return Math.round(baseXP / 2 * 100) / 100;
-  } else if (attemptNumber === 3) {
-    return Math.round(baseXP / 4 * 100) / 100;
-  } else {
-    return 0;
+    // Calculer la dégressivité
+    if (attemptNumber === 1) {
+      return baseXP;
+    } else if (attemptNumber === 2) {
+      return Math.round(baseXP / 2 * 100) / 100;
+    } else if (attemptNumber === 3) {
+      return Math.round(baseXP / 4 * 100) / 100;
+    } else {
+      return 0;
+    }
+  } catch (error) {
+    console.error('Erreur calculateQuestionXP:', error);
+    return baseXP; // En cas d'erreur, donner l'XP de base
   }
 }
 
@@ -54,14 +59,19 @@ export async function getUserAttemptNumber(
   userId: string,
   quizId: string
 ): Promise<number> {
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from('user_quiz_attempts')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('quiz_id', quizId);
+  try {
+    const supabase = await createClient();
+    const { count } = await supabase
+      .from('user_quiz_attempts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('quiz_id', quizId);
 
-  return (count || 0) + 1;
+    return (count || 0) + 1;
+  } catch (error) {
+    console.error('Erreur getUserAttemptNumber:', error);
+    return 1;
+  }
 }
 
 export async function recordQuizAttempt(
@@ -71,15 +81,19 @@ export async function recordQuizAttempt(
   score: number,
   xpEarned: number
 ): Promise<void> {
-  const supabase = await createClient();
-  
-  await supabase.from('user_quiz_attempts').insert({
-    user_id: userId,
-    quiz_id: quizId,
-    attempt_number: attemptNumber,
-    score,
-    xp_earned: xpEarned,
-  });
+  try {
+    const supabase = await createClient();
+    
+    await supabase.from('user_quiz_attempts').insert({
+      user_id: userId,
+      quiz_id: quizId,
+      attempt_number: attemptNumber,
+      score,
+      xp_earned: xpEarned,
+    });
+  } catch (error) {
+    console.error('Erreur recordQuizAttempt:', error);
+  }
 }
 
 export async function recordQuestionAttempt(
@@ -90,16 +104,20 @@ export async function recordQuestionAttempt(
   isCorrect: boolean,
   xpEarned: number
 ): Promise<void> {
-  const supabase = await createClient();
-  
-  await supabase.from('user_question_attempts').insert({
-    user_id: userId,
-    quiz_id: quizId,
-    question_id: questionId,
-    attempt_number: attemptNumber,
-    is_correct: isCorrect,
-    xp_earned: xpEarned,
-  });
+  try {
+    const supabase = await createClient();
+    
+    await supabase.from('user_question_attempts').insert({
+      user_id: userId,
+      quiz_id: quizId,
+      question_id: questionId,
+      attempt_number: attemptNumber,
+      is_correct: isCorrect,
+      xp_earned: xpEarned,
+    });
+  } catch (error) {
+    console.error('Erreur recordQuestionAttempt:', error);
+  }
 }
 
 export async function addXP(
@@ -108,19 +126,65 @@ export async function addXP(
   source: 'quiz' | 'streak' | 'challenge' | 'event',
   sourceId?: string
 ): Promise<void> {
-  const supabase = await createClient();
-  
-  // Enregistrer la transaction
-  await supabase.from('xp_transactions').insert({
-    user_id: userId,
-    source,
-    source_id: sourceId || null,
-    amount,
-  });
+  try {
+    const supabase = await createClient();
+    
+    // Enregistrer la transaction
+    await supabase.from('xp_transactions').insert({
+      user_id: userId,
+      source,
+      source_id: sourceId || null,
+      amount,
+    });
 
-  // Mettre à jour le total XP de l'utilisateur
-  await supabase.rpc('increment_user_xp', {
-    user_id: userId,
-    amount: amount,
-  });
+    // Mettre à jour le total XP de l'utilisateur directement
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('xp, total_xp')
+      .eq('id', userId)
+      .single();
+
+    if (profile) {
+      const newXP = (profile.xp || 0) + amount;
+      const newTotalXP = (profile.total_xp || 0) + amount;
+      const newLevel = Math.max(1, Math.floor(Math.sqrt(newXP / 10)) + 1);
+
+      await supabase
+        .from('user_profiles')
+        .update({ 
+          xp: newXP, 
+          total_xp: newTotalXP,
+          level: newLevel 
+        })
+        .eq('id', userId);
+
+      // Mettre à jour le rang
+      await updateUserRank(userId, newXP);
+    }
+  } catch (error) {
+    console.error('Erreur addXP:', error);
+  }
+}
+
+async function updateUserRank(userId: string, xp: number): Promise<void> {
+  try {
+    const supabase = await createClient();
+    
+    const { data: rankConfig } = await supabase
+      .from('rank_config')
+      .select('rank_label, xp_required')
+      .order('display_order', { ascending: false });
+
+    if (rankConfig) {
+      const newRank = rankConfig.find(r => xp >= r.xp_required);
+      if (newRank) {
+        await supabase
+          .from('user_profiles')
+          .update({ rank: newRank.rank_label })
+          .eq('id', userId);
+      }
+    }
+  } catch (error) {
+    console.error('Erreur updateUserRank:', error);
+  }
 }
