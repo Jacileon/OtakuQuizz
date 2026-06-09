@@ -76,6 +76,8 @@ export default async function ProfilPage() {
     .order('completed_at', { ascending: false })
     .limit(50);
 
+  console.log('Game history count:', gameHistory?.length);
+
   return (
     <div className="p-4 lg:p-8 pb-24 md:pb-8">
       <div className="max-w-4xl mx-auto space-y-8">

@@ -11,6 +11,7 @@ import { UserProfile } from '@/types';
 import { toast } from '@/lib/hooks/useToast';
 import { getInitials } from '@/lib/utils';
 import { Camera, User, Save, Loader2, Lock } from 'lucide-react';
+import { AvatarUpload } from './AvatarUpload';
 
 const AFRICAN_COUNTRIES = [
   'Algérie',
@@ -83,6 +84,7 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
   const [country, setCountry] = useState(profile.country || '');
   const [phone, setPhone] = useState(profile.phone || '');
   const [favoriteAnime, setFavoriteAnime] = useState(profile.favorite_anime || '');
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,23 +121,11 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
       <Card className="border-dark-border bg-dark-card">
         <CardContent className="p-6 space-y-6">
           {/* Avatar */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={profile.avatar_url || undefined} />
-                <AvatarFallback className="text-2xl bg-dark-surface">
-                  {getInitials(profile.username)}
-                </AvatarFallback>
-              </Avatar>
-              <button
-                type="button"
-                className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-brand flex items-center justify-center hover:bg-brand/80 transition-colors"
-              >
-                <Camera className="h-4 w-4 text-white" />
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">Niveau {profile.level} • Rang {profile.rank}</p>
-          </div>
+          <AvatarUpload
+            currentAvatarUrl={avatarUrl}
+            username={profile.username}
+            onUpload={(url) => setAvatarUrl(url)}
+          />
 
           {/* Champs du formulaire */}
           <div className="space-y-4">
