@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Swords, Users, Zap, Clock, Trophy, ArrowLeft } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, Swords, Users, Zap, Clock, Trophy, ArrowLeft, Check, X, Edit2 } from 'lucide-react';
 import { useChallengeSession } from '@/lib/hooks/useChallenges';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useFriends } from '@/lib/hooks/useFriends';
 import { inviteToChallenge, startChallenge } from '@/lib/actions/challenges';
 import { toast } from '@/lib/hooks/useToast';
+import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -26,6 +28,9 @@ export default function ChallengePage() {
   const [starting, setStarting] = useState(false);
   const [inviting, setInviting] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
+  const [xpBet, setXpBet] = useState(100);
+  const [accepting, setAccepting] = useState(false);
+  const [editingBet, setEditingBet] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(refetch, 5000);
@@ -55,11 +60,15 @@ export default function ChallengePage() {
     );
   }
 
-  const participants = session.participants || [];
-  const invitations = session.invitations || [];
-  const isCreator = user?.id === session.creator_id;
+  const participants = (session as any).participants || [];
+  const invitations = (session as any).invitations || [];
+  const isCreator = user?.id === (session as any).creator_id;
+  const isParticipant = participants.some((p: any) => p.user_id === user?.id);
+  const myInvitation = invitations.find((i: any) => i.invitee_id === user?.id && i.status === 'pending');
+  const myParticipation = participants.find((p: any) => p.user_id === user?.id);
   const acceptedCount = participants.filter((p: any) => p.status === 'accepted').length;
-  const canStart = isCreator && acceptedCount >= 2 && session.status === 'waiting';
+  const canStart = isCreator && acceptedCount >= 2 && (session as any).status === 'waiting';
+  const isInvited = !!myInvitation && !isParticipant;
 
   const handleInvite = async (friendId: string) => {
     try {
@@ -87,6 +96,90 @@ export default function ChallengePage() {
     }
   };
 
+  const handleAccept = async () => {
+    if (!myInvitation) return;
+    try {
+      setAccepting(true);
+      const supabase = createClient();
+
+      // Mettre à jour l'invitation
+      await supabase
+        .from('challenge_invitations')
+        .update({ status: 'accepted' })
+        .eq('id', myInvitation.id);
+
+      // Ajouter comme participant avec la mise
+      await supabase.from('challenge_participants').insert({
+        session_id: sessionId,
+        user_id: user?.id,
+        xp_bet: xpBet,
+        status: 'accepted',
+      });
+
+      // Mettre à jour le pool XP
+      try {
+        await supabase.rpc('increment_challenge_pool', {
+          session_id: sessionId,
+          amount: xpBet,
+        });
+      } catch {
+        // Fallback: update direct
+        await supabase.from('challenge_sessions')
+          .update({ total_xp_pool: (session as any).total_xp_pool + xpBet })
+          .eq('id', sessionId);
+      }
+
+      toast({ title: 'Défi accepté !', description: `Mise: ${xpBet} XP` });
+      refetch();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!myInvitation) return;
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('challenge_invitations')
+        .update({ status: 'refused' })
+        .eq('id', myInvitation.id);
+      
+      toast({ title: 'Défi refusé' });
+      router.push('/friends');
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleUpdateBet = async () => {
+    if (!myParticipation) return;
+    try {
+      const supabase = createClient();
+      const oldBet = myParticipation.xp_bet;
+      const diff = xpBet - oldBet;
+
+      await supabase
+        .from('challenge_participants')
+        .update({ xp_bet: xpBet })
+        .eq('id', myParticipation.id);
+
+      // Mettre à jour le pool
+      await supabase
+        .from('challenge_sessions')
+        .update({ total_xp_pool: (session as any).total_xp_pool + diff })
+        .eq('id', sessionId);
+
+      toast({ title: 'Mise mise à jour', description: `Nouvelle mise: ${xpBet} XP` });
+      setEditingBet(false);
+      refetch();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="p-4 lg:p-8 pb-24 md:pb-8">
       <div className="max-w-2xl mx-auto">
@@ -99,13 +192,13 @@ export default function ChallengePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <Swords className="h-6 w-6 text-purple-500" />
-              Défi en cours
+              {isInvited ? 'Défi reçu' : 'Défi en cours'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="p-4 rounded-lg bg-dark-surface">
               <p className="text-sm text-muted-foreground">Quiz</p>
-              <p className="font-medium">{session.quiz?.title || 'Quiz'}</p>
+              <p className="font-medium">{(session as any).quiz?.title || 'Quiz'}</p>
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-lg bg-dark-surface">
@@ -113,24 +206,90 @@ export default function ChallengePage() {
                 <Zap className="h-5 w-5 text-yellow-500" />
                 <span className="font-medium">Pool XP total</span>
               </div>
-              <span className="text-2xl font-bold text-yellow-500">{session.total_xp_pool || 0} XP</span>
+              <span className="text-2xl font-bold text-yellow-500">{(session as any).total_xp_pool || 0} XP</span>
             </div>
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               <span>
-                {session.status === 'waiting' && `Expire ${formatDistanceToNow(new Date(session.invite_expires_at), { addSuffix: true, locale: fr })}`}
-                {session.status === 'ready' && 'Prêt à lancer'}
-                {session.status === 'playing' && 'En cours'}
-                {session.status === 'completed' && 'Terminé'}
+                {(session as any).status === 'waiting' && `Expire ${formatDistanceToNow(new Date((session as any).invite_expires_at), { addSuffix: true, locale: fr })}`}
+                {(session as any).status === 'ready' && 'Prêt à lancer'}
+                {(session as any).status === 'playing' && 'En cours'}
+                {(session as any).status === 'completed' && 'Terminé'}
               </span>
             </div>
 
-            <Badge variant={session.status === 'waiting' ? 'secondary' : session.status === 'completed' ? 'default' : 'outline'}>
-              {session.status === 'waiting' ? 'En attente' : session.status === 'ready' ? 'Prêt' : session.status === 'playing' ? 'En cours' : 'Terminé'}
+            <Badge variant={(session as any).status === 'waiting' ? 'secondary' : (session as any).status === 'completed' ? 'default' : 'outline'}>
+              {(session as any).status === 'waiting' ? 'En attente' : (session as any).status === 'ready' ? 'Prêt' : (session as any).status === 'playing' ? 'En cours' : 'Terminé'}
             </Badge>
           </CardContent>
         </Card>
+
+        {/* Section invitation - accepter/refuser/modifier mise */}
+        {isInvited && (
+          <Card className="mb-6 border-green-500/30">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Check className="h-5 w-5 text-green-500" />
+                Accepter le défi
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Votre mise XP</label>
+                <Input
+                  type="number"
+                  value={xpBet}
+                  onChange={(e) => setXpBet(parseInt(e.target.value) || 0)}
+                  min={10}
+                  placeholder="Montant XP à miser"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Vous devez avoir assez d'XP pour miser
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={handleAccept} disabled={accepting || xpBet < 10} className="flex-1 gap-2">
+                  {accepting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Accepter ({xpBet} XP)
+                </Button>
+                <Button variant="destructive" onClick={handleReject} className="gap-2">
+                  <X className="h-4 w-4" />
+                  Refuser
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Modifier sa mise (si déjà participant) */}
+        {isParticipant && myParticipation && (session as any).status === 'waiting' && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              {editingBet ? (
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    value={xpBet}
+                    onChange={(e) => setXpBet(parseInt(e.target.value) || 0)}
+                    min={10}
+                    className="flex-1"
+                  />
+                  <Button size="sm" onClick={handleUpdateBet}>OK</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingBet(false)}>Annuler</Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">Votre mise: <strong>{myParticipation.xp_bet} XP</strong></span>
+                  <Button size="sm" variant="ghost" onClick={() => { setXpBet(myParticipation.xp_bet); setEditingBet(true); }}>
+                    <Edit2 className="h-4 w-4 mr-1" />
+                    Modifier
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="mb-6">
           <CardHeader>
@@ -184,7 +343,7 @@ export default function ChallengePage() {
           </CardContent>
         </Card>
 
-        {isCreator && session.status === 'waiting' && (
+        {isCreator && (session as any).status === 'waiting' && (
           <div className="space-y-4">
             {showInvite ? (
               <Card>
@@ -244,13 +403,13 @@ export default function ChallengePage() {
           </div>
         )}
 
-        {session.status === 'completed' && (
+        {(session as any).status === 'completed' && (
           <Card>
             <CardContent className="p-8 text-center">
               <Trophy className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
               <h2 className="text-xl font-semibold mb-2">Défi terminé !</h2>
               <p className="text-muted-foreground">
-                {session.winner_id === user?.id ? 'Vous avez gagné !' : 'Consultez les résultats'}
+                {(session as any).winner_id === user?.id ? 'Vous avez gagné !' : 'Consultez les résultats'}
               </p>
             </CardContent>
           </Card>
