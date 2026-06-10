@@ -255,8 +255,12 @@ export async function getChallengeSession(sessionId: string): Promise<ChallengeS
 
   if (!session) return null;
 
+  // Vérifier si l'utilisateur est le créateur, un participant, ou a une invitation
+  const isCreator = (session as any).creator_id === user.id;
   const isParticipant = (session as any).participants?.some((p: any) => p.user_id === user.id);
-  if (!isParticipant && (session as any).creator_id !== user.id) return null;
+  const hasInvitation = (session as any).invitations?.some((i: any) => i.invitee_id === user.id);
+
+  if (!isCreator && !isParticipant && !hasInvitation) return null;
 
   return session as any;
 }
