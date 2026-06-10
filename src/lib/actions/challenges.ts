@@ -19,23 +19,6 @@ export async function createChallengeSession(quizId: string, xpBet: number): Pro
     throw new Error('Solde XP insuffisant');
   }
 
-  const { data: sessions } = await supabase
-    .from('challenge_sessions')
-    .select('id')
-    .eq('quiz_id', quizId);
-
-  const sessionIds = sessions?.map(s => s.id) || [];
-
-  const { count } = sessionIds.length > 0 ? await supabase
-    .from('challenge_participants')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .in('session_id', sessionIds) : { count: 0 };
-
-  if (count && count >= 3) {
-    throw new Error('Limite de 3 participations atteinte pour ce quiz');
-  }
-
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
   const { data: session, error } = await supabase
@@ -389,41 +372,5 @@ export async function checkChallengeParticipationLimit(
   quizId: string, 
   userId: string
 ): Promise<{ allowed: boolean; message?: string }> {
-  const supabase = await createClient();
-
-  // Récupérer les sessions de défi pour ce quiz
-  const { data: sessions } = await supabase
-    .from('challenge_sessions')
-    .select('id')
-    .eq('quiz_id', quizId);
-
-  if (!sessions || sessions.length === 0) {
-    return { allowed: true };
-  }
-
-  const sessionIds = sessions.map(s => s.id);
-
-  // Compter les participations de cet utilisateur
-  const { count } = await supabase
-    .from('challenge_participants')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .in('session_id', sessionIds);
-
-  if (count && count >= 3) {
-    // Récupérer le nom de l'utilisateur
-    const { data: user } = await supabase
-      .from('user_profiles')
-      .select('nickname, username')
-      .eq('id', userId)
-      .single();
-
-    const displayName = user?.nickname || user?.username || 'Cet utilisateur';
-    return { 
-      allowed: false, 
-      message: `${displayName} a déjà atteint la limite de 3 participations sur ce quiz.` 
-    };
-  }
-
   return { allowed: true };
 }
