@@ -1,0 +1,28 @@
+<nav class="bg-dark/95 backdrop-blur border-b border-dark-border sticky top-0 z-50">
+    <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-2">
+            <span class="text-brand text-2xl">⚔️</span>
+            <span class="font-display text-xl tracking-wider">OTAKU QUIZ AFRICA</span>
+        </a>
+        
+        <div class="hidden md:flex items-center gap-4">
+            <a href="/dashboard" class="text-muted-foreground hover:text-white transition-colors">Accueil</a>
+            <a href="/explore" class="text-muted-foreground hover:text-white transition-colors">Explorer</a>
+            <a href="/friends" class="text-muted-foreground hover:text-white transition-colors">Amis</a>
+            <a href="/leaderboard" class="text-muted-foreground hover:text-white transition-colors">Classement</a>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            {{if .User}}
+                <span class="text-sm">{{or .User.Nickname .User.Username}}</span>
+                <a href="/profil" class="text-muted-foreground hover:text-white">
+                    <img src="{{or .User.AvatarURL '/static/img/default-avatar.png'}}" class="w-8 h-8 rounded-full" alt="Avatar">
+                </a>
+            {{else}}
+                <a href="/login" class="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand/80 transition-colors">
+                    Connexion
+                </a>
+            {{end}}
+        </div>
+    </div>
+</nav>

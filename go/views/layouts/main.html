@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} | Otaku Quiz Africa</title>
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-dark text-white min-h-screen">
+    {{template "navbar" .}}
+    
+    <main class="container mx-auto px-4 py-8">
+        {{template "content" .}}
+    </main>
+    
+    {{template "footer" .}}
+    
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

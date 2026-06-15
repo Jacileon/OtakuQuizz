@@ -1,0 +1,38 @@
+/* Otaku Quiz Africa - Styles */
+
+:root {
+    --brand: #6366f1;
+    --accent: #f59e0b;
+    --dark: #0f0f23;
+    --dark-surface: #1a1a2e;
+    --dark-card: #16213e;
+    --dark-border: #2d2d44;
+}
+
+body {
+    background-color: var(--dark);
+    color: #e2e8f0;
+}
+
+.bg-dark { background-color: var(--dark); }
+.bg-dark-surface { background-color: var(--dark-surface); }
+.bg-dark-card { background-color: var(--dark-card); }
+.border-dark-border { border-color: var(--dark-border); }
+.text-brand { color: var(--brand); }
+.bg-brand { background-color: var(--brand); }
+.bg-accent { background-color: var(--accent); }
+.text-muted-foreground { color: #94a3b8; }
+
+.font-display {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .hidden-mobile { display: none; }
+}
