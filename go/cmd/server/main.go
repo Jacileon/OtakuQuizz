@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -42,15 +43,21 @@ func main() {
 
 	// Application Fiber
 	app := fiber.New(fiber.Config{
-		Views: engine,
+		Views:         engine,
+		BodyLimit:     4 * 1024 * 1024, // 4MB
+		ReadBufferSize: 16384, // 16KB
 	})
 
 	// Middleware
 	app.Use(logger.New())
 	app.Use(recover.New())
 
-	// Session store
-	store := session.New()
+	// Session store avec configuration légère
+	store := session.New(session.Config{
+		CookieHTTPOnly: true,
+		CookieSameSite: "Lax",
+		Expiration:     24 * time.Hour,
+	})
 
 	// Fichiers statiques
 	app.Static("/static", "./static")
@@ -93,7 +100,7 @@ func main() {
 	// Port
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3001"
+		port = "8080"
 	}
 
 	log.Printf("Server starting on http://localhost:%s", port)

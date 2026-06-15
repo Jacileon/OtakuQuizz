@@ -16,7 +16,7 @@
             {{if .User}}
                 <span class="text-sm">{{or .User.Nickname .User.Username}}</span>
                 <a href="/profil" class="text-muted-foreground hover:text-white">
-                    <img src="{{or .User.AvatarURL '/static/img/default-avatar.png'}}" class="w-8 h-8 rounded-full" alt="Avatar">
+                    <img src="/static/img/default-avatar.png" class="w-8 h-8 rounded-full" alt="Avatar">
                 </a>
             {{else}}
                 <a href="/login" class="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand/80 transition-colors">
