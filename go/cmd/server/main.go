@@ -18,16 +18,24 @@ import (
 
 func main() {
 	// Charger les variables d'environnement
-	if err := godotenv.Load("../../.env.local"); err != nil {
-		log.Println("Warning: .env.local not found")
+	godotenv.Load("../../.env.local")
+	godotenv.Load("../.env.local")
+	godotenv.Load(".env.local")
+
+	// Mapper les variables Supabase
+	if os.Getenv("SUPABASE_URL") == "" {
+		os.Setenv("SUPABASE_URL", os.Getenv("NEXT_PUBLIC_SUPABASE_URL"))
+	}
+	if os.Getenv("SUPABASE_ANON_KEY") == "" {
+		os.Setenv("SUPABASE_ANON_KEY", os.Getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY"))
 	}
 
-	// Connexion à la base de données
+	// Connexion à Supabase
 	db, err := database.Connect()
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		log.Fatal("Failed to connect to Supabase:", err)
 	}
-	defer db.Close()
+	log.Println("Connected to Supabase")
 
 	// Template engine
 	engine := html.New("./views", ".html")
@@ -88,6 +96,6 @@ func main() {
 		port = "3001"
 	}
 
-	log.Printf("Server starting on port %s", port)
+	log.Printf("Server starting on http://localhost:%s", port)
 	log.Fatal(app.Listen(":" + port))
 }

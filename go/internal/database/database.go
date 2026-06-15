@@ -1,38 +1,75 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func Connect() (*sql.DB, error) {
-	host := os.Getenv("DB_HOST")
-	port := os.Getenv("DB_PORT")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
+type Supabase struct {
+	URL    string
+	APIKey string
+	Client *http.Client
+}
 
-	if host == "" {
-		host = "localhost"
+func Connect() (*Supabase, error) {
+	url := os.Getenv("SUPABASE_URL")
+	apiKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	if url == "" {
+		return nil, fmt.Errorf("SUPABASE_URL is required")
 	}
-	if port == "" {
-		port = "5432"
+	if apiKey == "" {
+		return nil, fmt.Errorf("SUPABASE_ANON_KEY is required")
 	}
 
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+	return &Supabase{
+		URL:    url,
+		APIKey: apiKey,
+		Client: &http.Client{},
+	}, nil
+}
 
-	db, err := sql.Open("pgx", connStr)
+func (s *Supabase) Query(table string, query string) ([]byte, error) {
+	url := fmt.Sprintf("%s/rest/v1/%s?%s", s.URL, table, query)
+
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.Ping(); err != nil {
+	req.Header.Set("apikey", s.APIKey)
+	req.Header.Set("Authorization", "Bearer "+s.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
+}
+
+func (s *Supabase) Insert(table string, data []byte) ([]byte, error) {
+	url := fmt.Sprintf("%s/rest/v1/%s", s.URL, table)
+
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	req.Header.Set("apikey", s.APIKey)
+	req.Header.Set("Authorization", "Bearer "+s.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Prefer", "return=representation")
+
+	resp, err := s.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return io.ReadAll(resp.Body)
 }
