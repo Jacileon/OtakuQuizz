@@ -4,95 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}} | Otaku Quiz Africa</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f0f23; 
-            color: #e2e8f0; 
-            min-height: 100vh; 
-        }
-        a { color: inherit; text-decoration: none; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
-        nav { 
-            background: rgba(15, 15, 35, 0.95); 
-            border-bottom: 1px solid #2d2d44; 
-            position: sticky; 
-            top: 0; 
-            z-index: 50; 
-            backdrop-filter: blur(10px);
-        }
-        nav .inner { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            height: 64px; 
-        }
-        nav .logo { 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            font-weight: bold; 
-            font-size: 1.25rem; 
-        }
-        nav .links { 
-            display: flex; 
-            gap: 16px; 
-        }
-        nav .links a { 
-            color: #94a3b8; 
-            transition: color 0.2s; 
-        }
-        nav .links a:hover { 
-            color: white; 
-        }
-        main { 
-            padding: 32px 0; 
-        }
-        footer {
-            background: #1a1a2e;
-            border-top: 1px solid #2d2d44;
-            padding: 32px 0;
-            margin-top: 64px;
-            text-align: center;
-            color: #94a3b8;
-        }
-        @media (max-width: 768px) {
-            nav .links { display: none; }
-        }
-    </style>
+    <link href="/static/css/style.css" rel="stylesheet">
 </head>
 <body>
     <nav>
-        <div class="container inner">
-            <a href="/" class="logo">
-                <span style="font-size: 1.5rem;">⚔️</span>
-                <span>OTAKU QUIZ AFRICA</span>
-            </a>
-            <div class="links">
+        <div class="nav-inner">
+            <a href="/" class="logo">⚔️ OTAKU QUIZ AFRICA</a>
+            <div class="nav-links">
                 <a href="/dashboard">Accueil</a>
                 <a href="/explore">Explorer</a>
                 <a href="/friends">Amis</a>
                 <a href="/leaderboard">Classement</a>
             </div>
             <div>
-                {{if .User}}
-                    <a href="/profil">{{or .User.Nickname .User.Username}}</a>
-                {{else}}
-                    <a href="/login" style="background: #6366f1; color: white; padding: 8px 16px; border-radius: 8px;">Connexion</a>
-                {{end}}
+                <a href="/login" class="btn-login">Connexion</a>
             </div>
         </div>
     </nav>
     
-    <main class="container">
-        {{template "content" .}}
+    <main>
+        {{.Content}}
     </main>
     
     <footer>
-        <div class="container">
-            <p>&copy; 2024 Otaku Quiz Africa. Tous droits réservés.</p>
-        </div>
+        <p>&copy; 2024 Otaku Quiz Africa. Tous droits réservés.</p>
     </footer>
 </body>
 </html>
