@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"html/template"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
@@ -34,7 +35,7 @@ type UserProfile struct {
 func renderPage(c *fiber.Ctx, title string, content string) error {
 	return c.Render("layouts/main", fiber.Map{
 		"Title":   title,
-		"Content": content,
+		"Content": template.HTML(content),
 	})
 }
 
@@ -79,13 +80,13 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 // Pages protégées
 func (h *Handler) Dashboard(c *fiber.Ctx) error {
 	user := c.Locals("user").(*UserProfile)
-	return renderPage(c, "Dashboard", `
-<div class="welcome">Bonjour `+user.Username+` 👋</div>
-<div class="rank">`+user.Rank+` • Niveau `+fmt.Sprintf("%d", user.Level)+`</div>
+	return renderPage(c, "Dashboard", fmt.Sprintf(`
+<div class="welcome">Bonjour %s 👋</div>
+<div class="rank">%s • Niveau %d</div>
 <div class="stats">
     <div class="stat-card">
         <div class="label">XP</div>
-        <div class="value">`+fmt.Sprintf("%d", user.XP)+`</div>
+        <div class="value">%d</div>
     </div>
     <div class="stat-card">
         <div class="label">Quiz joués</div>
@@ -96,7 +97,7 @@ func (h *Handler) Dashboard(c *fiber.Ctx) error {
         <div class="value">0</div>
     </div>
 </div>
-	`)
+	`, user.Username, user.Rank, user.Level, user.XP))
 }
 
 func (h *Handler) Explore(c *fiber.Ctx) error {
@@ -125,11 +126,11 @@ func (h *Handler) ChallengeDetail(c *fiber.Ctx) error {
 
 func (h *Handler) Profile(c *fiber.Ctx) error {
 	user := c.Locals("user").(*UserProfile)
-	return renderPage(c, "Profil", `
-<h1>Profil de `+user.Username+`</h1>
-<p>Rang: `+user.Rank+` | XP: `+fmt.Sprintf("%d", user.XP)+`</p>
-<a href="/profile/edit">Modifier</a>
-	`)
+	return renderPage(c, "Profil", fmt.Sprintf(`
+<h1>Profil de %s</h1>
+<p>Rang: %s | XP: %d</p>
+<a href="/profile/edit" class="btn-primary" style="display:inline-block;margin-top:16px;">Modifier</a>
+	`, user.Username, user.Rank, user.XP))
 }
 
 func (h *Handler) ProfileEdit(c *fiber.Ctx) error {
