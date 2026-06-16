@@ -400,3 +400,178 @@ footer {
 .auth-divider span {
     padding: 0 12px;
 }
+
+/* Quiz Grid */
+.quiz-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.quiz-card {
+    background: #16213e;
+    border: 1px solid #2d2d44;
+    border-radius: 12px;
+    padding: 20px;
+    transition: border-color 0.2s;
+}
+
+.quiz-card:hover {
+    border-color: #6366f1;
+}
+
+.quiz-header {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.quiz-card h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.quiz-meta {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 12px;
+}
+
+.badge-official {
+    display: inline-block;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.quiz-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    background: #6366f1;
+    color: white;
+    transition: background 0.2s;
+}
+
+.btn-sm:hover {
+    background: #4f46e5;
+}
+
+/* Leaderboard */
+.leaderboard {
+    background: #16213e;
+    border: 1px solid #2d2d44;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.leaderboard table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leaderboard th {
+    background: #1a1a2e;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+}
+
+.leaderboard td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #2d2d44;
+}
+
+.leaderboard tr:hover {
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.rank-cell {
+    font-size: 1.2rem;
+    font-weight: bold;
+    width: 60px;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.username {
+    font-weight: 500;
+}
+
+.user-rank {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.xp-cell {
+    font-weight: 600;
+    color: #6366f1;
+}
+
+.level-cell {
+    color: #94a3b8;
+}
+
+/* Friends */
+.friends-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.friend-card {
+    background: #16213e;
+    border: 1px solid #2d2d44;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.friend-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #6366f1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.friend-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.friend-name {
+    font-weight: 600;
+}
+
+.friend-rank {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.friend-actions {
+    display: flex;
+    gap: 8px;
+}

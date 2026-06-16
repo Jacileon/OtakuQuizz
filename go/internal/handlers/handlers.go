@@ -204,7 +204,59 @@ func (h *Handler) Dashboard(c *fiber.Ctx) error {
 }
 
 func (h *Handler) Explore(c *fiber.Ctx) error {
-	return renderPage(c, "Explorer", `<h1>Explorer les quiz</h1><p>Page en construction</p>`)
+	// Récupérer les quiz depuis Supabase
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
+	}
+
+	url := fmt.Sprintf("%s/rest/v1/quizzes?is_visible=eq.true&order=play_count.desc&limit=20", supabaseURL)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+
+	resp, err := http.DefaultClient.Do(req)
+	quizzes := []map[string]interface{}{}
+	if err == nil {
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(body, &quizzes)
+	}
+
+	quizCards := ""
+	for _, q := range quizzes {
+		title, _ := q["title"].(string)
+		series, _ := q["series"].(string)
+		questionCount, _ := q["question_count"].(float64)
+		playCount, _ := q["play_count"].(float64)
+		id, _ := q["id"].(string)
+		quizType, _ := q["quiz_type"].(string)
+
+		badge := ""
+		if quizType == "official" {
+			badge = `<span class="badge-official">Officiel</span>`
+		}
+
+		quizCards += fmt.Sprintf(`
+<div class="quiz-card">
+    <div class="quiz-header">%s</div>
+    <h3>%s</h3>
+    <p class="quiz-meta">%s • %d questions • %d plays</p>
+    %s
+    <div class="quiz-actions">
+        <a href="/quiz/%s/play" class="btn-primary">Jouer</a>
+        <a href="/quiz/%s" class="btn-secondary">Voir</a>
+    </div>
+</div>`, series, title, series, int(questionCount), int(playCount), badge, id, id)
+	}
+
+	if quizCards == "" {
+		quizCards = `<p style="color: #94a3b8; text-align: center; padding: 40px;">Aucun quiz disponible</p>`
+	}
+
+	return renderPage(c, "Explorer", fmt.Sprintf(`
+<h1 style="margin-bottom: 24px;">Explorer les quiz</h1>
+<div class="quiz-grid">%s</div>
+	`, quizCards))
 }
 
 func (h *Handler) QuizDetail(c *fiber.Ctx) error {
@@ -220,7 +272,80 @@ func (h *Handler) QuizSubmit(c *fiber.Ctx) error {
 }
 
 func (h *Handler) Friends(c *fiber.Ctx) error {
-	return renderPage(c, "Amis", `<h1>Amis</h1><p>Page en construction</p>`)
+	user := c.Locals("user").(*UserProfile)
+	
+	// Récupérer les amis depuis Supabase
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
+	}
+
+	accessToken := ""
+	// TODO: Get access token from session
+
+	url := fmt.Sprintf("%s/rest/v1/friendships?or=(requester_id.eq.%s,addressee_id.eq.%s)&status=eq.accepted", supabaseURL, user.ID, user.ID)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	friendships := []map[string]interface{}{}
+	if err == nil {
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(body, &friendships)
+	}
+
+	friendCards := ""
+	for _, f := range friendships {
+		// Determine friend ID
+		requesterID, _ := f["requester_id"].(string)
+		friendID := requesterID
+		if friendID == user.ID {
+			friendID, _ = f["addressee_id"].(string)
+		}
+
+		// Get friend profile
+		friendURL := fmt.Sprintf("%s/rest/v1/user_profiles?id=eq.%s&select=username,avatar_url,rank,level", supabaseURL, friendID)
+		friendReq, _ := http.NewRequest("GET", friendURL, nil)
+		friendReq.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+		friendResp, err := http.DefaultClient.Do(friendReq)
+		if err == nil {
+			defer friendResp.Body.Close()
+			friendBody, _ := io.ReadAll(friendResp.Body)
+			var friends []map[string]interface{}
+			json.Unmarshal(friendBody, &friends)
+			if len(friends) > 0 {
+				friend := friends[0]
+				username, _ := friend["username"].(string)
+				rank, _ := friend["rank"].(string)
+				level, _ := friend["level"].(float64)
+
+				friendCards += fmt.Sprintf(`
+<div class="friend-card">
+    <div class="friend-avatar">%s</div>
+    <div class="friend-info">
+        <span class="friend-name">%s</span>
+        <span class="friend-rank">%s • Niv. %d</span>
+    </div>
+    <div class="friend-actions">
+        <a href="/chat/%s" class="btn-sm">💬</a>
+    </div>
+</div>`, string(username[0]), username, rank, int(level), friendID)
+			}
+		}
+	}
+
+	if friendCards == "" {
+		friendCards = `<p style="color: #94a3b8; text-align: center; padding: 40px;">Aucun ami. Recherchez des utilisateurs !</p>`
+	}
+
+	return renderPage(c, "Amis", fmt.Sprintf(`
+<h1 style="margin-bottom: 24px;">👥 Amis</h1>
+<div class="friends-list">%s</div>
+	`, friendCards))
 }
 
 func (h *Handler) ChallengeDetail(c *fiber.Ctx) error {
@@ -245,11 +370,160 @@ func (h *Handler) ProfileUpdate(c *fiber.Ctx) error {
 }
 
 func (h *Handler) Leaderboard(c *fiber.Ctx) error {
-	return renderPage(c, "Classement", `<h1>Classement</h1><p>Page en construction</p>`)
+	// Récupérer le classement depuis Supabase
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
+	}
+
+	url := fmt.Sprintf("%s/rest/v1/user_profiles?order=xp.desc&limit=50", supabaseURL)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+
+	resp, err := http.DefaultClient.Do(req)
+	users := []map[string]interface{}{}
+	if err == nil {
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(body, &users)
+	}
+
+	rows := ""
+	for i, u := range users {
+		username, _ := u["username"].(string)
+		rank, _ := u["rank"].(string)
+		xp, _ := u["xp"].(float64)
+		level, _ := u["level"].(float64)
+
+		medal := ""
+		if i == 0 {
+			medal = "🥇"
+		} else if i == 1 {
+			medal = "🥈"
+		} else if i == 2 {
+			medal = "🥉"
+		} else {
+			medal = fmt.Sprintf("#%d", i+1)
+		}
+
+		rows += fmt.Sprintf(`
+<tr>
+    <td class="rank-cell">%s</td>
+    <td>
+        <div class="user-info">
+            <span class="username">%s</span>
+            <span class="user-rank">%s</span>
+        </div>
+    </td>
+    <td class="xp-cell">%d XP</td>
+    <td class="level-cell">Niv. %d</td>
+</tr>`, medal, username, rank, int(xp), int(level))
+	}
+
+	return renderPage(c, "Classement", fmt.Sprintf(`
+<h1 style="margin-bottom: 24px;">🏆 Classement</h1>
+<div class="leaderboard">
+    <table>
+        <thead>
+            <tr>
+                <th>Rang</th>
+                <th>Joueur</th>
+                <th>XP</th>
+                <th>Niveau</th>
+            </tr>
+        </thead>
+        <tbody>%s</tbody>
+    </table>
+</div>
+	`, rows))
 }
 
 func (h *Handler) FAQ(c *fiber.Ctx) error {
-	return renderPage(c, "FAQ", `<h1>FAQ</h1><p>Page en construction</p>`)
+	return renderPage(c, "FAQ", `
+<h1 style="margin-bottom: 24px;">❓ FAQ</h1>
+
+<div class="faq-section">
+    <h2>🎮 Concept du site</h2>
+    <div class="faq-item">
+        <strong>Qu'est-ce que Otaku Quiz Africa ?</strong>
+        <p>Otaku Quiz Africa est une plateforme de quiz dédiée à la culture anime/manga en Afrique. Testez vos connaissances, défiez vos amis et progressez dans un système de rangs !</p>
+    </div>
+    <div class="faq-item">
+        <strong>Comment ça marche ?</strong>
+        <p>Jouez à des quiz, gagnez de l'XP, montez en rang et débloquez de nouvelles fonctionnalités. Vous pouvez aussi créer vos propres quiz et défier vos amis !</p>
+    </div>
+</div>
+
+<div class="faq-section">
+    <h2>📝 Création de quiz</h2>
+    <div class="faq-item">
+        <strong>Puis-je créer mes propres quiz ?</strong>
+        <p>Oui ! Atteignez le rang C ou obtenez une autorisation spéciale d'un admin pour créer vos propres quiz.</p>
+    </div>
+    <div class="faq-item">
+        <strong>Quels types de questions sont disponibles ?</strong>
+        <p>QCM, Vrai/Faux, Image, GIF, Audio, Devine le personnage, Trouve l'intrus.</p>
+    </div>
+</div>
+
+<div class="faq-section">
+    <h2>⚔️ Défis</h2>
+    <div class="faq-item">
+        <strong>Comment défier un ami ?</strong>
+        <p>Allez sur la page d'un quiz et cliquez sur "Défier vos amis". Sélectionnez les amis à inviter et définissez votre mise XP.</p>
+    </div>
+    <div class="faq-item">
+        <strong>Comment fonctionne la mise XP ?</strong>
+        <p>Vous misez un montant d'XP. Le ou les gagnants remportent la totalité de l'XP misé par tous les participants.</p>
+    </div>
+</div>
+
+<div class="faq-section">
+    <h2>🏆 Système de rangs</h2>
+    <div class="faq-item">
+        <strong>Quels sont les rangs disponibles ?</strong>
+        <p>F → E → D → C → B → A → S → S+ → SS → SSS → Légende</p>
+    </div>
+    <div class="faq-item">
+        <strong>Comment progresser en rang ?</strong>
+        <p>Gagnez de l'XP en jouant aux quiz. Plus vous avez de bonnes réponses et plus vous répondez vite, plus vous gagnez d'XP.</p>
+    </div>
+</div>
+
+<div class="faq-section">
+    <h2>🎯 Événements officiels</h2>
+    <div class="faq-item">
+        <strong>Qu'est-ce qu'un quiz officiel ?</strong>
+        <p>Les quiz officiels sont créés par les admins. Ils ont des récompenses spéciales et un classement public permanent.</p>
+    </div>
+</div>
+
+<style>
+.faq-section {
+    margin-bottom: 32px;
+}
+.faq-section h2 {
+    font-size: 1.25rem;
+    margin-bottom: 16px;
+    color: #6366f1;
+}
+.faq-item {
+    background: #16213e;
+    border: 1px solid #2d2d44;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+.faq-item strong {
+    display: block;
+    margin-bottom: 8px;
+}
+.faq-item p {
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+</style>
+	`)
 }
 
 // Pages admin
