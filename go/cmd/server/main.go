@@ -69,10 +69,11 @@ func main() {
 	// Routes publiques
 	app.Get("/", h.Home)
 	app.Get("/login", h.LoginPage)
-	app.Post("/login", h.Login)
 	app.Get("/register", h.RegisterPage)
-	app.Post("/register", h.Register)
 	app.Get("/logout", h.Logout)
+	app.Get("/auth/google", h.GoogleAuth)
+	app.Get("/auth/callback", h.GoogleCallback)
+	app.Post("/auth/session", h.CreateSession)
 
 	// Routes protégées
 	protected := app.Group("", mw.RequireAuth)

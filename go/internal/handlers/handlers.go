@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
+	"net/http"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
@@ -75,6 +79,106 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 		sess.Destroy()
 	}
 	return c.Redirect("/login")
+}
+
+func (h *Handler) GoogleAuth(c *fiber.Ctx) error {
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
+	}
+	
+	redirectURL := fmt.Sprintf("%s/auth/v1/authorize?provider=google&redirect_to=http://localhost:8080/auth/callback", supabaseURL)
+	return c.Redirect(redirectURL)
+}
+
+func (h *Handler) GoogleCallback(c *fiber.Ctx) error {
+	// Supabase redirige avec des tokens dans l'URL fragment
+	// On utilise JavaScript pour récupérer les tokens côté client
+	return c.SendString(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Connexion...</title>
+    <script>
+        // Récupérer les tokens depuis l'URL fragment
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        
+        if (accessToken) {
+            // Envoyer les tokens au serveur
+            fetch('/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken })
+            }).then(() => {
+                window.location.href = '/dashboard';
+            });
+        } else {
+            window.location.href = '/login?error=no_token';
+        }
+    </script>
+</head>
+<body>
+    <p>Connexion en cours...</p>
+</body>
+</html>
+	`)
+}
+
+func (h *Handler) CreateSession(c *fiber.Ctx) error {
+	type SessionRequest struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	var req SessionRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	// Récupérer l'utilisateur depuis Supabase avec le token
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
+	}
+
+	// Appeler Supabase pour obtenir l'utilisateur
+	url := fmt.Sprintf("%s/auth/v1/user", supabaseURL)
+	req2, _ := http.NewRequest("GET", url, nil)
+	req2.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+	req2.Header.Set("Authorization", "Bearer "+req.AccessToken)
+
+	resp, err := http.DefaultClient.Do(req2)
+	if err != nil || resp.StatusCode != 200 {
+		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	defer resp.Body.Close()
+
+	// Lire la réponse
+	body, _ := io.ReadAll(resp.Body)
+	
+	// Parser l'utilisateur
+	type SupabaseUser struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+	}
+	var user SupabaseUser
+	json.Unmarshal(body, &user)
+
+	// Créer la session
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Session error"})
+	}
+
+	sess.Set("user_id", user.ID)
+	sess.Set("access_token", req.AccessToken)
+	sess.Set("refresh_token", req.RefreshToken)
+	sess.Save()
+
+	return c.JSON(fiber.Map{"success": true})
 }
 
 // Pages protégées
