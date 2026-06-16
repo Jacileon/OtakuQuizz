@@ -94,37 +94,36 @@ func (h *Handler) GoogleAuth(c *fiber.Ctx) error {
 func (h *Handler) GoogleCallback(c *fiber.Ctx) error {
 	// Supabase redirige avec des tokens dans l'URL fragment
 	// On utilise JavaScript pour récupérer les tokens côté client
-	return c.SendString(`
-<!DOCTYPE html>
+	c.Set("Content-Type", "text/html; charset=utf-8")
+	return c.SendString(`<!DOCTYPE html>
 <html>
 <head>
     <title>Connexion...</title>
+</head>
+<body>
+    <p>Connexion en cours...</p>
     <script>
-        // Récupérer les tokens depuis l'URL fragment
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
+        var hash = window.location.hash.substring(1);
+        var params = new URLSearchParams(hash);
+        var accessToken = params.get('access_token');
+        var refreshToken = params.get('refresh_token');
         
         if (accessToken) {
-            // Envoyer les tokens au serveur
-            fetch('/auth/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken })
-            }).then(() => {
-                window.location.href = '/dashboard';
-            });
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/auth/session', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    window.location.href = '/dashboard';
+                }
+            };
+            xhr.send(JSON.stringify({access_token: accessToken, refresh_token: refreshToken}));
         } else {
             window.location.href = '/login?error=no_token';
         }
     </script>
-</head>
-<body>
-    <p>Connexion en cours...</p>
 </body>
-</html>
-	`)
+</html>`)
 }
 
 func (h *Handler) CreateSession(c *fiber.Ctx) error {
