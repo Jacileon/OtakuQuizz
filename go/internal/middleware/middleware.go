@@ -1,10 +1,17 @@
 package middleware
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
 	"otaku-quiz-africa/internal/database"
+	"otaku-quiz-africa/internal/handlers"
 )
 
 type Middleware struct {
@@ -23,29 +30,37 @@ func (m *Middleware) RequireAuth(c *fiber.Ctx) error {
 	}
 
 	userID := sess.Get("user_id")
-	if userID == nil {
+	accessToken := sess.Get("access_token")
+	if userID == nil || accessToken == nil {
 		return c.Redirect("/login")
 	}
 
-	// TODO: Fetch user from Supabase
-	user := &struct {
-		ID            string  `json:"id"`
-		Email         string  `json:"email"`
-		Username      string  `json:"username"`
-		Nickname      *string `json:"nickname"`
-		AvatarURL     *string `json:"avatar_url"`
-		XP            int     `json:"xp"`
-		Level         int     `json:"level"`
-		Rank          string  `json:"rank"`
-		IsAdmin       bool    `json:"is_admin"`
-		CanCreateQuiz bool    `json:"can_create_quiz"`
-	}{
-		ID:       userID.(string),
-		Username: "User",
-		Rank:     "F",
+	// Récupérer le profil depuis Supabase
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
 	}
 
-	c.Locals("user", user)
+	url := fmt.Sprintf("%s/rest/v1/user_profiles?id=eq.%s&select=*", supabaseURL, userID)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+	req.Header.Set("Authorization", "Bearer "+accessToken.(string))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		return c.Redirect("/login")
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	var profiles []handlers.UserProfile
+	json.Unmarshal(body, &profiles)
+
+	if len(profiles) == 0 {
+		return c.Redirect("/login")
+	}
+
+	c.Locals("user", &profiles[0])
 	return c.Next()
 }
 
@@ -55,6 +70,10 @@ func (m *Middleware) RequireAdmin(c *fiber.Ctx) error {
 		return c.Redirect("/login")
 	}
 
-	// TODO: Check is_admin from Supabase
+	profile, ok := user.(*handlers.UserProfile)
+	if !ok || !profile.IsAdmin {
+		return c.Redirect("/dashboard")
+	}
+
 	return c.Next()
 }
