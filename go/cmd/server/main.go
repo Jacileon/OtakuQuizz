@@ -75,6 +75,16 @@ func main() {
 	app.Get("/auth/callback", h.GoogleCallback)
 	app.Post("/auth/session", h.CreateSession)
 
+	// API routes
+	api := app.Group("/api")
+	api.Get("/friends", h.APIGetFriends)
+	api.Get("/friends/requests", h.APIGetFriendRequests)
+	api.Post("/friends/request", h.APISendFriendRequest)
+	api.Post("/friends/accept", h.APIAcceptFriendRequest)
+	api.Post("/friends/reject", h.APIRejectFriendRequest)
+	api.Post("/friends/remove", h.APIRemoveFriend)
+	api.Get("/users/search", h.APISearchUsers)
+
 	// Routes protégées
 	protected := app.Group("", mw.RequireAuth)
 	protected.Get("/dashboard", h.Dashboard)

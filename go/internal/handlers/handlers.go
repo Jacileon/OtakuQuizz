@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
@@ -178,6 +179,222 @@ func (h *Handler) CreateSession(c *fiber.Ctx) error {
 	sess.Save()
 
 	return c.JSON(fiber.Map{"success": true})
+}
+
+// API Handlers
+func (h *Handler) APIGetFriends(c *fiber.Ctx) error {
+	userID := c.Query("user_id")
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	anonKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	// Récupérer les amitiés acceptées
+	url := fmt.Sprintf("%s/rest/v1/friendships?or=(requester_id.eq.%s,addressee_id.eq.%s)&status=eq.accepted", supabaseURL, userID, userID)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", anonKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return c.JSON(fiber.Map{"friends": []interface{}{}})
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var friendships []map[string]interface{}
+	json.Unmarshal(body, &friendships)
+
+	friends := []map[string]interface{}{}
+	for _, f := range friendships {
+		requesterID, _ := f["requester_id"].(string)
+		addresseeID, _ := f["addressee_id"].(string)
+		friendID := requesterID
+		if friendID == userID {
+			friendID = addresseeID
+		}
+		friendshipID, _ := f["id"].(string)
+
+		profileURL := fmt.Sprintf("%s/rest/v1/user_profiles?id=eq.%s&select=id,username,nickname,avatar_url,rank,level", supabaseURL, friendID)
+		profileReq, _ := http.NewRequest("GET", profileURL, nil)
+		profileReq.Header.Set("apikey", anonKey)
+		profileResp, err := http.DefaultClient.Do(profileReq)
+		if err == nil {
+			defer profileResp.Body.Close()
+			profileBody, _ := io.ReadAll(profileResp.Body)
+			var profiles []map[string]interface{}
+			json.Unmarshal(profileBody, &profiles)
+			if len(profiles) > 0 {
+				friend := profiles[0]
+				friend["friendship_id"] = friendshipID
+				friends = append(friends, friend)
+			}
+		}
+	}
+
+	return c.JSON(fiber.Map{"friends": friends})
+}
+
+func (h *Handler) APIGetFriendRequests(c *fiber.Ctx) error {
+	userID := c.Query("user_id")
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	anonKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	url := fmt.Sprintf("%s/rest/v1/friendships?addressee_id=eq.%s&status=eq.pending", supabaseURL, userID)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", anonKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return c.JSON(fiber.Map{"requests": []interface{}{}})
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var friendships []map[string]interface{}
+	json.Unmarshal(body, &friendships)
+
+	requests := []map[string]interface{}{}
+	for _, f := range friendships {
+		requesterID, _ := f["requester_id"].(string)
+		friendshipID, _ := f["id"].(string)
+
+		profileURL := fmt.Sprintf("%s/rest/v1/user_profiles?id=eq.%s&select=id,username,nickname,avatar_url,rank", supabaseURL, requesterID)
+		profileReq, _ := http.NewRequest("GET", profileURL, nil)
+		profileReq.Header.Set("apikey", anonKey)
+		profileResp, err := http.DefaultClient.Do(profileReq)
+		if err == nil {
+			defer profileResp.Body.Close()
+			profileBody, _ := io.ReadAll(profileResp.Body)
+			var profiles []map[string]interface{}
+			json.Unmarshal(profileBody, &profiles)
+			if len(profiles) > 0 {
+				req := profiles[0]
+				req["friendship_id"] = friendshipID
+				requests = append(requests, req)
+			}
+		}
+	}
+
+	return c.JSON(fiber.Map{"requests": requests})
+}
+
+func (h *Handler) APISendFriendRequest(c *fiber.Ctx) error {
+	type Request struct {
+		UserID string `json:"user_id"`
+	}
+	var req Request
+	c.BodyParser(&req)
+
+	sess, _ := h.store.Get(c)
+	senderID := sess.Get("user_id").(string)
+
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	anonKey := os.Getenv("SUPABASE_ANON_KEY")
+	serviceKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+	// Vérifier si déjà amis
+	checkURL := fmt.Sprintf("%s/rest/v1/friendships?or=(and(requester_id.eq.%s,addressee_id.eq.%s),and(requester_id.eq.%s,addressee_id.eq.%s))", supabaseURL, senderID, req.UserID, req.UserID, senderID)
+	checkReq, _ := http.NewRequest("GET", checkURL, nil)
+	checkReq.Header.Set("apikey", anonKey)
+	checkResp, _ := http.DefaultClient.Do(checkReq)
+	if checkResp != nil {
+		defer checkResp.Body.Close()
+		checkBody, _ := io.ReadAll(checkResp.Body)
+		var existing []interface{}
+		json.Unmarshal(checkBody, &existing)
+		if len(existing) > 0 {
+			return c.JSON(fiber.Map{"error": "Demande déjà envoyée"})
+		}
+	}
+
+	// Envoyer la demande
+	insertURL := fmt.Sprintf("%s/rest/v1/friendships", supabaseURL)
+	insertData := fmt.Sprintf(`{"requester_id":"%s","addressee_id":"%s","status":"pending"}`, senderID, req.UserID)
+	insertReq, _ := http.NewRequest("POST", insertURL, strings.NewReader(insertData))
+	insertReq.Header.Set("apikey", serviceKey)
+	insertReq.Header.Set("Authorization", "Bearer "+serviceKey)
+	insertReq.Header.Set("Content-Type", "application/json")
+	insertReq.Header.Set("Prefer", "return=representation")
+	http.DefaultClient.Do(insertReq)
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handler) APIAcceptFriendRequest(c *fiber.Ctx) error {
+	type Request struct {
+		FriendshipID string `json:"friendship_id"`
+	}
+	var req Request
+	c.BodyParser(&req)
+
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	serviceKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+	url := fmt.Sprintf("%s/rest/v1/friendships?id=eq.%s", supabaseURL, req.FriendshipID)
+	updateReq, _ := http.NewRequest("PATCH", url, strings.NewReader(`{"status":"accepted"}`))
+	updateReq.Header.Set("apikey", serviceKey)
+	updateReq.Header.Set("Authorization", "Bearer "+serviceKey)
+	updateReq.Header.Set("Content-Type", "application/json")
+	http.DefaultClient.Do(updateReq)
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handler) APIRejectFriendRequest(c *fiber.Ctx) error {
+	type Request struct {
+		FriendshipID string `json:"friendship_id"`
+	}
+	var req Request
+	c.BodyParser(&req)
+
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	serviceKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+	url := fmt.Sprintf("%s/rest/v1/friendships?id=eq.%s", supabaseURL, req.FriendshipID)
+	updateReq, _ := http.NewRequest("PATCH", url, strings.NewReader(`{"status":"rejected"}`))
+	updateReq.Header.Set("apikey", serviceKey)
+	updateReq.Header.Set("Authorization", "Bearer "+serviceKey)
+	updateReq.Header.Set("Content-Type", "application/json")
+	http.DefaultClient.Do(updateReq)
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handler) APIRemoveFriend(c *fiber.Ctx) error {
+	type Request struct {
+		FriendshipID string `json:"friendship_id"`
+	}
+	var req Request
+	c.BodyParser(&req)
+
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	serviceKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+	url := fmt.Sprintf("%s/rest/v1/friendships?id=eq.%s", supabaseURL, req.FriendshipID)
+	deleteReq, _ := http.NewRequest("DELETE", url, nil)
+	deleteReq.Header.Set("apikey", serviceKey)
+	deleteReq.Header.Set("Authorization", "Bearer "+serviceKey)
+	http.DefaultClient.Do(deleteReq)
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *Handler) APISearchUsers(c *fiber.Ctx) error {
+	query := c.Query("q")
+	if len(query) < 2 {
+		return c.JSON(fiber.Map{"users": []interface{}{}})
+	}
+
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	anonKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	url := fmt.Sprintf("%s/rest/v1/user_profiles?or=(username.ilike.*%s*,nickname.ilike.*%s*)&limit=20", supabaseURL, query, query)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", anonKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return c.JSON(fiber.Map{"users": []interface{}{}})
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var users []map[string]interface{}
+	json.Unmarshal(body, &users)
+
+	return c.JSON(fiber.Map{"users": users})
 }
 
 // Pages protégées
@@ -578,79 +795,175 @@ func (h *Handler) QuizSubmit(c *fiber.Ctx) error {
 
 func (h *Handler) Friends(c *fiber.Ctx) error {
 	user := c.Locals("user").(*UserProfile)
-	
-	// Récupérer les amis depuis Supabase
-	supabaseURL := os.Getenv("SUPABASE_URL")
-	if supabaseURL == "" {
-		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
-	}
-
-	accessToken := ""
-	// TODO: Get access token from session
-
-	url := fmt.Sprintf("%s/rest/v1/friendships?or=(requester_id.eq.%s,addressee_id.eq.%s)&status=eq.accepted", supabaseURL, user.ID, user.ID)
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
-	if accessToken != "" {
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	friendships := []map[string]interface{}{}
-	if err == nil {
-		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
-		json.Unmarshal(body, &friendships)
-	}
-
-	friendCards := ""
-	for _, f := range friendships {
-		// Determine friend ID
-		requesterID, _ := f["requester_id"].(string)
-		friendID := requesterID
-		if friendID == user.ID {
-			friendID, _ = f["addressee_id"].(string)
-		}
-
-		// Get friend profile
-		friendURL := fmt.Sprintf("%s/rest/v1/user_profiles?id=eq.%s&select=username,avatar_url,rank,level", supabaseURL, friendID)
-		friendReq, _ := http.NewRequest("GET", friendURL, nil)
-		friendReq.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
-		friendResp, err := http.DefaultClient.Do(friendReq)
-		if err == nil {
-			defer friendResp.Body.Close()
-			friendBody, _ := io.ReadAll(friendResp.Body)
-			var friends []map[string]interface{}
-			json.Unmarshal(friendBody, &friends)
-			if len(friends) > 0 {
-				friend := friends[0]
-				username, _ := friend["username"].(string)
-				rank, _ := friend["rank"].(string)
-				level, _ := friend["level"].(float64)
-
-				friendCards += fmt.Sprintf(`
-<div class="friend-card">
-    <div class="friend-avatar">%s</div>
-    <div class="friend-info">
-        <span class="friend-name">%s</span>
-        <span class="friend-rank">%s • Niv. %d</span>
-    </div>
-    <div class="friend-actions">
-        <a href="/chat/%s" class="btn-sm">💬</a>
-    </div>
-</div>`, string(username[0]), username, rank, int(level), friendID)
-			}
-		}
-	}
-
-	if friendCards == "" {
-		friendCards = `<p style="color: #94a3b8; text-align: center; padding: 40px;">Aucun ami. Recherchez des utilisateurs !</p>`
-	}
 
 	return renderPage(c, "Amis", fmt.Sprintf(`
-<h1 style="margin-bottom: 24px;">👥 Amis</h1>
-<div class="friends-list">%s</div>
-	`, friendCards))
+<div class="friends-container">
+    <div class="friends-tabs">
+        <button class="tab-btn active" onclick="showTab('amis')">👥 Amis</button>
+        <button class="tab-btn" onclick="showTab('rechercher')">🔍 Rechercher</button>
+        <button class="tab-btn" onclick="showTab('demandes')">🔔 Demandes</button>
+        <button class="tab-btn" onclick="showTab('chat')">💬 Chat</button>
+    </div>
+
+    <!-- Tab Amis -->
+    <div id="tab-amis" class="tab-content active">
+        <div id="friends-list" class="friends-list">
+            <p style="color: #94a3b8; text-align: center; padding: 40px;">Chargement...</p>
+        </div>
+    </div>
+
+    <!-- Tab Rechercher -->
+    <div id="tab-rechercher" class="tab-content" style="display:none">
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="Rechercher un utilisateur..." onkeyup="searchUsers(this.value)">
+        </div>
+        <div id="search-results" class="friends-list"></div>
+    </div>
+
+    <!-- Tab Demandes -->
+    <div id="tab-demandes" class="tab-content" style="display:none">
+        <div id="requests-list" class="friends-list">
+            <p style="color: #94a3b8; text-align: center; padding: 40px;">Chargement...</p>
+        </div>
+    </div>
+
+    <!-- Tab Chat -->
+    <div id="tab-chat" class="tab-content" style="display:none">
+        <div id="conversations-list" class="friends-list">
+            <p style="color: #94a3b8; text-align: center; padding: 40px;">Aucune conversation</p>
+        </div>
+    </div>
+</div>
+
+<script>
+var currentUserId = '%s';
+
+function showTab(name) {
+    document.querySelectorAll('.tab-content').forEach(function(t) { t.style.display = 'none'; });
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('tab-' + name).style.display = 'block';
+    event.target.classList.add('active');
+    
+    if (name === 'amis') loadFriends();
+    if (name === 'demandes') loadRequests();
+}
+
+function loadFriends() {
+    fetch('/api/friends?user_id=' + currentUserId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var html = '';
+            if (data.friends && data.friends.length > 0) {
+                data.friends.forEach(function(f) {
+                    html += '<div class="friend-card">';
+                    html += '<div class="friend-avatar">' + (f.username ? f.username[0].toUpperCase() : '?') + '</div>';
+                    html += '<div class="friend-info"><span class="friend-name">' + (f.nickname || f.username) + '</span>';
+                    html += '<span class="friend-rank">' + f.rank + ' • Niv. ' + f.level + '</span></div>';
+                    html += '<div class="friend-actions">';
+                    html += '<a href="/chat/' + f.id + '" class="btn-sm">💬</a>';
+                    html += '<button class="btn-sm btn-danger" onclick="removeFriend(\'' + f.friendship_id + '\')">✕</button>';
+                    html += '</div></div>';
+                });
+            } else {
+                html = '<p style="color: #94a3b8; text-align: center; padding: 40px;">Aucun ami. Recherchez des utilisateurs !</p>';
+            }
+            document.getElementById('friends-list').innerHTML = html;
+        });
+}
+
+function searchUsers(query) {
+    if (query.length < 2) { document.getElementById('search-results').innerHTML = ''; return; }
+    fetch('/api/users/search?q=' + encodeURIComponent(query))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var html = '';
+            if (data.users && data.users.length > 0) {
+                data.users.forEach(function(u) {
+                    html += '<div class="friend-card">';
+                    html += '<div class="friend-avatar">' + u.username[0].toUpperCase() + '</div>';
+                    html += '<div class="friend-info"><span class="friend-name">' + (u.nickname || u.username) + '</span>';
+                    html += '<span class="friend-rank">' + u.rank + ' • Niv. ' + u.level + '</span></div>';
+                    html += '<button class="btn-sm" onclick="sendRequest(\'' + u.id + '\')">Ajouter</button>';
+                    html += '</div>';
+                });
+            } else {
+                html = '<p style="color: #94a3b8; text-align: center; padding: 20px;">Aucun résultat</p>';
+            }
+            document.getElementById('search-results').innerHTML = html;
+        });
+}
+
+function sendRequest(userId) {
+    fetch('/api/friends/request', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) alert('Demande envoyée !');
+        else alert(data.error || 'Erreur');
+    });
+}
+
+function loadRequests() {
+    fetch('/api/friends/requests?user_id=' + currentUserId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var html = '';
+            if (data.requests && data.requests.length > 0) {
+                data.requests.forEach(function(r) {
+                    html += '<div class="friend-card">';
+                    html += '<div class="friend-avatar">' + r.username[0].toUpperCase() + '</div>';
+                    html += '<div class="friend-info"><span class="friend-name">' + (r.nickname || r.username) + '</span></div>';
+                    html += '<div class="friend-actions">';
+                    html += '<button class="btn-sm btn-success" onclick="acceptRequest(\'' + r.friendship_id + '\')">✓</button>';
+                    html += '<button class="btn-sm btn-danger" onclick="rejectRequest(\'' + r.friendship_id + '\')">✕</button>';
+                    html += '</div></div>';
+                });
+            } else {
+                html = '<p style="color: #94a3b8; text-align: center; padding: 40px;">Aucune demande</p>';
+            }
+            document.getElementById('requests-list').innerHTML = html;
+        });
+}
+
+function acceptRequest(id) {
+    fetch('/api/friends/accept', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({friendship_id: id})})
+        .then(function() { loadRequests(); loadFriends(); });
+}
+
+function rejectRequest(id) {
+    fetch('/api/friends/reject', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({friendship_id: id})})
+        .then(function() { loadRequests(); });
+}
+
+function removeFriend(id) {
+    if (!confirm('Supprimer cet ami ?')) return;
+    fetch('/api/friends/remove', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({friendship_id: id})})
+        .then(function() { loadFriends(); });
+}
+
+loadFriends();
+</script>
+
+<style>
+.friends-container { max-width: 600px; margin: 0 auto; }
+.friends-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.tab-btn { padding: 8px 16px; background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 8px; color: #94a3b8; cursor: pointer; transition: all 0.2s; }
+.tab-btn.active { background: #6366f1; color: white; border-color: #6366f1; }
+.friends-list { display: flex; flex-direction: column; gap: 12px; }
+.friend-card { background: #16213e; border: 1px solid #2d2d44; border-radius: 12px; padding: 16px; display: flex; align-items: center; gap: 12px; }
+.friend-avatar { width: 48px; height: 48px; border-radius: 50%; background: #6366f1; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
+.friend-info { flex: 1; display: flex; flex-direction: column; }
+.friend-name { font-weight: 600; }
+.friend-rank { font-size: 0.8rem; color: #94a3b8; }
+.friend-actions { display: flex; gap: 8px; }
+.search-box { margin-bottom: 16px; }
+.search-box input { width: 100%%; padding: 12px; background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 8px; color: white; font-size: 1rem; }
+.btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; background: #6366f1; color: white; border: none; cursor: pointer; }
+.btn-success { background: #22c55e; }
+.btn-danger { background: #ef4444; }
+</style>
+	`, user.ID))
 }
 
 func (h *Handler) ChallengeDetail(c *fiber.Ctx) error {
