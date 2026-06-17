@@ -88,6 +88,7 @@ func main() {
 	protected.Get("/profile/edit", h.ProfileEdit)
 	protected.Post("/profile/edit", h.ProfileUpdate)
 	protected.Get("/leaderboard", h.Leaderboard)
+	protected.Get("/leaderboard/quiz/:id", h.QuizLeaderboard)
 	protected.Get("/faq", h.FAQ)
 
 	// Routes admin

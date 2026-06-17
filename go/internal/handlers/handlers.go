@@ -340,12 +340,101 @@ func (h *Handler) QuizDetail(c *fiber.Ctx) error {
 	int(questionCount), playCount, id, id))
 }
 
+func (h *Handler) QuizLeaderboard(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
+	}
+
+	// Récupérer le quiz
+	quizURL := fmt.Sprintf("%s/rest/v1/quizzes?id=eq.%s&select=title", supabaseURL, id)
+	quizReq, _ := http.NewRequest("GET", quizURL, nil)
+	quizReq.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+	quizResp, _ := http.DefaultClient.Do(quizReq)
+	quizzes := []map[string]interface{}{}
+	if quizResp != nil {
+		defer quizResp.Body.Close()
+		body, _ := io.ReadAll(quizResp.Body)
+		json.Unmarshal(body, &quizzes)
+	}
+
+	quizTitle := "Quiz"
+	if len(quizzes) > 0 {
+		quizTitle, _ = quizzes[0]["title"].(string)
+	}
+
+	// Récupérer le classement
+	url := fmt.Sprintf("%s/rest/v1/game_sessions?quiz_id=eq.%s&completed_at=not.is.null&order=score.desc&limit=50&select=*,user:user_id(username,avatar_url,rank)", supabaseURL, id)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+
+	resp, err := http.DefaultClient.Do(req)
+	sessions := []map[string]interface{}{}
+	if err == nil {
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(body, &sessions)
+	}
+
+	rows := ""
+	for i, s := range sessions {
+		score, _ := s["score"].(float64)
+		user, _ := s["user"].(map[string]interface{})
+		username := "?"
+		rank := "F"
+		if user != nil {
+			username, _ = user["username"].(string)
+			rank, _ = user["rank"].(string)
+		}
+
+		medal := fmt.Sprintf("#%d", i+1)
+		if i == 0 { medal = "🥇" } else if i == 1 { medal = "🥈" } else if i == 2 { medal = "🥉" }
+
+		rows += fmt.Sprintf(`<tr><td class="rank-cell">%s</td><td><span class="username">%s</span><span class="user-rank">%s</span></td><td class="xp-cell">%.0f pts</td></tr>`, medal, username, rank, score)
+	}
+
+	if rows == "" {
+		rows = `<tr><td colspan="3" style="text-align:center;color:#94a3b8;padding:24px;">Aucun score</td></tr>`
+	}
+
+	return renderPage(c, "Classement - "+quizTitle, fmt.Sprintf(`
+<a href="/quiz/%s" style="color:#6366f1;display:inline-block;margin-bottom:16px;">← Retour au quiz</a>
+<h1 style="margin-bottom:24px;">🏆 %s</h1>
+<div class="leaderboard">
+    <table><thead><tr><th>Rang</th><th>Joueur</th><th>Score</th></tr></thead>
+    <tbody>%s</tbody></table>
+</div>
+	`, id, quizTitle, rows))
+}
+
 func (h *Handler) QuizPlay(c *fiber.Ctx) error {
 	id := c.Params("id")
-	user := c.Locals("user").(*UserProfile)
-	
+
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = os.Getenv("NEXT_PUBLIC_SUPABASE_URL")
+	}
+
+	// Récupérer les questions
+	url := fmt.Sprintf("%s/rest/v1/questions?quiz_id=eq.%s&order=order_index.asc&select=*,answers(*)", supabaseURL, id)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", os.Getenv("SUPABASE_ANON_KEY"))
+
+	resp, err := http.DefaultClient.Do(req)
+	questions := []map[string]interface{}{}
+	if err == nil {
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		json.Unmarshal(body, &questions)
+	}
+
+	// Convertir en JSON pour le JS
+	questionsJSON, _ := json.Marshal(questions)
+
 	return renderPage(c, "Jouer", fmt.Sprintf(`
-<div id="quiz-container" data-quiz-id="%s" data-user-id="%s">
+<div id="quiz-container">
     <div id="countdown" class="countdown">
         <div class="countdown-number">3</div>
     </div>
@@ -353,7 +442,7 @@ func (h *Handler) QuizPlay(c *fiber.Ctx) error {
         <div class="quiz-header">
             <div class="quiz-progress">
                 <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
-                <span id="question-counter">Question 1/10</span>
+                <span id="question-counter">Question 1/%d</span>
             </div>
             <div id="timer" class="timer">30s</div>
         </div>
@@ -372,24 +461,26 @@ func (h *Handler) QuizPlay(c *fiber.Ctx) error {
 
 <script>
 (function() {
-    const quizId = '%s';
-    let currentQuestion = 0;
-    let score = 0;
-    let answers = [];
+    var questions = %s;
+    var currentQuestion = 0;
+    var score = 0;
+    var totalQuestions = questions.length;
+    var timerInterval = null;
+    var timeLeft = 30;
     
-    // Simuler le countdown
-    let count = 3;
-    const countdownEl = document.getElementById('countdown');
-    const countdownNum = countdownEl.querySelector('.countdown-number');
+    // Countdown
+    var count = 3;
+    var countdownEl = document.getElementById('countdown');
+    var countdownNum = countdownEl.querySelector('.countdown-number');
     
-    const countInterval = setInterval(() => {
+    var countInterval = setInterval(function() {
         count--;
         if (count > 0) {
             countdownNum.textContent = count;
         } else {
             countdownNum.textContent = 'GO!';
             clearInterval(countInterval);
-            setTimeout(() => {
+            setTimeout(function() {
                 countdownEl.style.display = 'none';
                 document.getElementById('quiz-content').style.display = 'block';
                 loadQuestion();
@@ -398,43 +489,54 @@ func (h *Handler) QuizPlay(c *fiber.Ctx) error {
     }, 1000);
     
     function loadQuestion() {
-        // Simuler des questions
-        const questions = [
-            { text: 'Quel est le nom du protagoniste de Naruto ?', answers: ['Naruto Uzumaki', 'Sasuke Uchiha', 'Sakura Haruno', 'Kakashi'], correct: 0 },
-            { text: 'Dans quel anime trouve-t-on le personnage de Luffy ?', answers: ['Bleach', 'One Piece', 'Dragon Ball', 'Naruto'], correct: 1 },
-            { text: 'Quel est le nom de l\'école dans My Hero Academia ?', answers: ['U.A.', 'Konoha', 'Soul Society', 'Namek'], correct: 0 },
-        ];
-        
-        if (currentQuestion >= questions.length) {
+        if (currentQuestion >= totalQuestions) {
             showResults();
             return;
         }
         
-        const q = questions[currentQuestion];
-        document.getElementById('question-text').textContent = q.text;
-        document.getElementById('question-counter').textContent = 'Question ' + (currentQuestion + 1) + '/' + questions.length;
-        document.getElementById('progress-fill').style.width = ((currentQuestion + 1) / questions.length * 100) + '%';
+        var q = questions[currentQuestion];
+        document.getElementById('question-text').textContent = q.question_text;
+        document.getElementById('question-counter').textContent = 'Question ' + (currentQuestion + 1) + '/' + totalQuestions;
+        document.getElementById('progress-fill').style.width = ((currentQuestion + 1) / totalQuestions * 100) + '%%';
         
-        const container = document.getElementById('answers-container');
+        // Timer
+        timeLeft = q.time_limit_seconds || 30;
+        document.getElementById('timer').textContent = timeLeft + 's';
+        clearInterval(timerInterval);
+        timerInterval = setInterval(function() {
+            timeLeft--;
+            document.getElementById('timer').textContent = timeLeft + 's';
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                currentQuestion++;
+                loadQuestion();
+            }
+        }, 1000);
+        
+        // Answers
+        var container = document.getElementById('answers-container');
         container.innerHTML = '';
-        q.answers.forEach((answer, i) => {
-            const btn = document.createElement('button');
+        var answers = q.answers || [];
+        answers.sort(function(a, b) { return (a.order_index || 0) - (b.order_index || 0); });
+        answers.forEach(function(answer) {
+            var btn = document.createElement('button');
             btn.className = 'answer-btn';
-            btn.textContent = answer;
-            btn.onclick = () => selectAnswer(i, q.correct, btn);
+            btn.textContent = answer.answer_text;
+            btn.onclick = function() { selectAnswer(answer, btn); };
             container.appendChild(btn);
         });
     }
     
-    function selectAnswer(index, correct, btn) {
-        if (index === correct) {
+    function selectAnswer(answer, btn) {
+        clearInterval(timerInterval);
+        if (answer.is_correct) {
             btn.classList.add('correct');
             score++;
         } else {
             btn.classList.add('wrong');
         }
         
-        setTimeout(() => {
+        setTimeout(function() {
             currentQuestion++;
             loadQuestion();
         }, 500);
@@ -443,8 +545,8 @@ func (h *Handler) QuizPlay(c *fiber.Ctx) error {
     function showResults() {
         document.getElementById('quiz-content').style.display = 'none';
         document.getElementById('results').style.display = 'block';
-        document.getElementById('score-display').innerHTML = '<h3>' + score + ' bonnes réponses</h3>';
-        document.getElementById('xp-display').innerHTML = '<p>+' + (score * 5) + ' XP</p>';
+        document.getElementById('score-display').innerHTML = '<h3>' + score + ' bonnes réponses sur ' + totalQuestions + '</h3>';
+        document.getElementById('xp-display').innerHTML = '<p>+' + (score * 5) + ' XP gagnés</p>';
     }
 })();
 </script>
@@ -455,19 +557,19 @@ func (h *Handler) QuizPlay(c *fiber.Ctx) error {
 .quiz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .quiz-progress { flex: 1; margin-right: 16px; }
 .progress-bar { height: 8px; background: #2d2d44; border-radius: 4px; overflow: hidden; }
-.progress-fill { height: 100%; background: #6366f1; transition: width 0.3s; }
-.timer { font-size: 1.5rem; font-weight: bold; color: #6366f1; }
+.progress-fill { height: 100%%; background: #6366f1; transition: width 0.3s; }
+.timer { font-size: 1.5rem; font-weight: bold; color: #6366f1; min-width: 50px; text-align: center; }
 .question-container { background: #16213e; border: 1px solid #2d2d44; border-radius: 12px; padding: 32px; }
 .question-container h2 { font-size: 1.25rem; margin-bottom: 24px; }
 .answers-grid { display: flex; flex-direction: column; gap: 12px; }
 .answer-btn { padding: 16px; background: #1a1a2e; border: 2px solid #2d2d44; border-radius: 8px; color: white; font-size: 1rem; cursor: pointer; transition: all 0.2s; text-align: left; }
-.answer-btn:hover { border-color: #6366f1; background: rgba(99, 102, 241, 0.1); }
-.answer-btn.correct { border-color: #22c55e; background: rgba(34, 197, 94, 0.1); }
-.answer-btn.wrong { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.answer-btn:hover { border-color: #6366f1; background: rgba(99,102,241,0.1); }
+.answer-btn.correct { border-color: #22c55e; background: rgba(34,197,94,0.1); }
+.answer-btn.wrong { border-color: #ef4444; background: rgba(239,68,68,0.1); }
 .results { text-align: center; padding: 60px 20px; }
 .results h2 { font-size: 2rem; margin-bottom: 24px; }
 </style>
-	`, id, user.ID, id))
+	`, len(questions), string(questionsJSON)))
 }
 
 func (h *Handler) QuizSubmit(c *fiber.Ctx) error {
