@@ -397,6 +397,105 @@ func (h *Handler) APISearchUsers(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"users": users})
 }
 
+func (h *Handler) APIGetConversations(c *fiber.Ctx) error {
+	userID := c.Query("user_id")
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	anonKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	url := fmt.Sprintf("%s/rest/v1/conversations?or=(user1_id.eq.%s,user2_id.eq.%s)&order=last_message_at.desc", supabaseURL, userID, userID)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", anonKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return c.JSON(fiber.Map{"conversations": []interface{}{}})
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var conversations []map[string]interface{}
+	json.Unmarshal(body, &conversations)
+
+	result := []map[string]interface{}{}
+	for _, conv := range conversations {
+		convID, _ := conv["id"].(string)
+		user1ID, _ := conv["user1_id"].(string)
+		user2ID, _ := conv["user2_id"].(string)
+		otherUserID := user1ID
+		if otherUserID == userID {
+			otherUserID = user2ID
+		}
+
+		// Get other user profile
+		profileURL := fmt.Sprintf("%s/rest/v1/user_profiles?id=eq.%s&select=id,username,nickname,avatar_url", supabaseURL, otherUserID)
+		profileReq, _ := http.NewRequest("GET", profileURL, nil)
+		profileReq.Header.Set("apikey", anonKey)
+		profileResp, err := http.DefaultClient.Do(profileReq)
+		if err == nil {
+			defer profileResp.Body.Close()
+			profileBody, _ := io.ReadAll(profileResp.Body)
+			var profiles []map[string]interface{}
+			json.Unmarshal(profileBody, &profiles)
+			if len(profiles) > 0 {
+				otherUser := profiles[0]
+				result = append(result, map[string]interface{}{
+					"id":              convID,
+					"other_user_id":   otherUserID,
+					"other_username":  otherUser["username"],
+					"other_nickname":  otherUser["nickname"],
+					"last_message":    conv["last_message"],
+					"unread_count":    0,
+				})
+			}
+		}
+	}
+
+	return c.JSON(fiber.Map{"conversations": result})
+}
+
+func (h *Handler) APIGetMessages(c *fiber.Ctx) error {
+	conversationID := c.Query("conversation_id")
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	anonKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	url := fmt.Sprintf("%s/rest/v1/messages?conversation_id=eq.%s&order=created_at.asc&limit=100", supabaseURL, conversationID)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("apikey", anonKey)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return c.JSON(fiber.Map{"messages": []interface{}{}})
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	var messages []map[string]interface{}
+	json.Unmarshal(body, &messages)
+
+	return c.JSON(fiber.Map{"messages": messages})
+}
+
+func (h *Handler) APISendMessage(c *fiber.Ctx) error {
+	type Request struct {
+		ConversationID string `json:"conversation_id"`
+		Content        string `json:"content"`
+	}
+	var req Request
+	c.BodyParser(&req)
+
+	sess, _ := h.store.Get(c)
+	senderID := sess.Get("user_id").(string)
+
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	serviceKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+	insertURL := fmt.Sprintf("%s/rest/v1/messages", supabaseURL)
+	insertData := fmt.Sprintf(`{"conversation_id":"%s","sender_id":"%s","content":"%s"}`, req.ConversationID, senderID, req.Content)
+	insertReq, _ := http.NewRequest("POST", insertURL, strings.NewReader(insertData))
+	insertReq.Header.Set("apikey", serviceKey)
+	insertReq.Header.Set("Authorization", "Bearer "+serviceKey)
+	insertReq.Header.Set("Content-Type", "application/json")
+	http.DefaultClient.Do(insertReq)
+
+	return c.JSON(fiber.Map{"success": true})
+}
+
 // Pages protégées
 func (h *Handler) Dashboard(c *fiber.Ctx) error {
 	user := c.Locals("user").(*UserProfile)
@@ -830,7 +929,20 @@ func (h *Handler) Friends(c *fiber.Ctx) error {
     <!-- Tab Chat -->
     <div id="tab-chat" class="tab-content" style="display:none">
         <div id="conversations-list" class="friends-list">
-            <p style="color: #94a3b8; text-align: center; padding: 40px;">Aucune conversation</p>
+            <p style="color: #94a3b8; text-align: center; padding: 40px;">Chargement...</p>
+        </div>
+    </div>
+
+    <!-- Chat Window (hidden by default) -->
+    <div id="chat-window" style="display:none">
+        <div class="chat-header">
+            <button onclick="closeChat()" style="background:none;border:none;color:white;cursor:pointer;font-size:1.2rem;">←</button>
+            <span id="chat-username" style="font-weight:600;"></span>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div class="chat-input">
+            <input type="text" id="message-input" placeholder="Écrire un message..." onkeydown="if(event.key==='Enter')sendMessage()">
+            <button onclick="sendMessage()" class="btn-sm">Envoyer</button>
         </div>
     </div>
 </div>
@@ -943,6 +1055,107 @@ function removeFriend(id) {
 }
 
 loadFriends();
+
+// Chat functions
+var currentConversationId = null;
+var currentChatFriendId = null;
+
+function showTab(name) {
+    document.querySelectorAll('.tab-content').forEach(function(t) { t.style.display = 'none'; });
+    document.getElementById('chat-window').style.display = 'none';
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('tab-' + name).style.display = 'block';
+    event.target.classList.add('active');
+    
+    if (name === 'amis') loadFriends();
+    if (name === 'demandes') loadRequests();
+    if (name === 'chat') loadConversations();
+}
+
+function loadConversations() {
+    fetch('/api/conversations?user_id=' + currentUserId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var html = '';
+            if (data.conversations && data.conversations.length > 0) {
+                data.conversations.forEach(function(conv) {
+                    html += '<div class="friend-card" onclick="openChat(\'' + conv.id + '\', \'' + conv.other_user_id + '\', \'' + (conv.other_username || 'Utilisateur') + '\')">';
+                    html += '<div class="friend-avatar">' + (conv.other_username ? conv.other_username[0].toUpperCase() : '?') + '</div>';
+                    html += '<div class="friend-info"><span class="friend-name">' + (conv.other_nickname || conv.other_username || 'Utilisateur') + '</span>';
+                    html += '<span class="friend-rank">' + (conv.last_message || 'Aucun message') + '</span></div>';
+                    if (conv.unread_count > 0) {
+                        html += '<span class="badge">' + conv.unread_count + '</span>';
+                    }
+                    html += '</div>';
+                });
+            } else {
+                html = '<p style="color: #94a3b8; text-align: center; padding: 40px;">Aucune conversation</p>';
+            }
+            document.getElementById('conversations-list').innerHTML = html;
+        });
+}
+
+function openChat(convId, friendId, username) {
+    currentConversationId = convId;
+    currentChatFriendId = friendId;
+    document.getElementById('tab-chat').style.display = 'none';
+    document.getElementById('chat-window').style.display = 'flex';
+    document.getElementById('chat-username').textContent = username;
+    loadMessages();
+}
+
+function closeChat() {
+    document.getElementById('chat-window').style.display = 'none';
+    document.getElementById('tab-chat').style.display = 'block';
+    currentConversationId = null;
+    currentChatFriendId = null;
+    loadConversations();
+}
+
+function loadMessages() {
+    if (!currentConversationId) return;
+    fetch('/api/messages?conversation_id=' + currentConversationId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var html = '';
+            if (data.messages && data.messages.length > 0) {
+                data.messages.forEach(function(msg) {
+                    var isOwn = msg.sender_id === currentUserId;
+                    html += '<div class="message ' + (isOwn ? 'message-own' : 'message-other') + '">';
+                    html += '<div class="message-bubble">' + msg.content + '</div>';
+                    html += '</div>';
+                });
+            } else {
+                html = '<p style="color: #94a3b8; text-align: center; padding: 40px;">Aucun message</p>';
+            }
+            document.getElementById('chat-messages').innerHTML = html;
+            document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+        });
+}
+
+function sendMessage() {
+    var input = document.getElementById('message-input');
+    var content = input.value.trim();
+    if (!content || !currentConversationId) return;
+    
+    fetch('/api/messages/send', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({conversation_id: currentConversationId, content: content})
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            input.value = '';
+            loadMessages();
+        }
+    });
+}
+
+// Auto-refresh messages
+setInterval(function() {
+    if (currentConversationId && document.getElementById('chat-window').style.display !== 'none') {
+        loadMessages();
+    }
+}, 3000);
 </script>
 
 <style>
@@ -962,6 +1175,20 @@ loadFriends();
 .btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; background: #6366f1; color: white; border: none; cursor: pointer; }
 .btn-success { background: #22c55e; }
 .btn-danger { background: #ef4444; }
+.badge { background: #ef4444; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+
+/* Chat */
+#chat-window { display: none; flex-direction: column; height: 500px; background: #16213e; border: 1px solid #2d2d44; border-radius: 12px; overflow: hidden; }
+.chat-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #1a1a2e; border-bottom: 1px solid #2d2d44; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.chat-input { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #2d2d44; }
+.chat-input input { flex: 1; padding: 10px; background: #1a1a2e; border: 1px solid #2d2d44; border-radius: 8px; color: white; }
+.message { display: flex; }
+.message-own { justify-content: flex-end; }
+.message-other { justify-content: flex-start; }
+.message-bubble { max-width: 70%; padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; }
+.message-own .message-bubble { background: #6366f1; color: white; border-bottom-right-radius: 4px; }
+.message-other .message-bubble { background: #1a1a2e; color: #e2e8f0; border-bottom-left-radius: 4px; }
 </style>
 	`, user.ID))
 }

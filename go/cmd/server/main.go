@@ -84,6 +84,9 @@ func main() {
 	api.Post("/friends/reject", h.APIRejectFriendRequest)
 	api.Post("/friends/remove", h.APIRemoveFriend)
 	api.Get("/users/search", h.APISearchUsers)
+	api.Get("/conversations", h.APIGetConversations)
+	api.Get("/messages", h.APIGetMessages)
+	api.Post("/messages/send", h.APISendMessage)
 
 	// Routes protégées
 	protected := app.Group("", mw.RequireAuth)
