@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { QuestionCreateInput, CharacterGuessItem, FindOddItem } from '@/types';
 import { toast } from '@/lib/hooks/useToast';
-import { Sparkles, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Sparkles, Check, AlertCircle, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +20,74 @@ interface ParsedQuestion {
   time_limit_seconds: number;
   character_guess_data?: { characters: CharacterGuessItem[] };
   find_odd_data?: { items: FindOddItem[]; odd_index: number };
+}
+
+function FormatGuide() {
+  const [open, setOpen] = useState(false);
+
+  const formats = [
+    {
+      label: 'QCM (Choix multiples)',
+      color: 'border-green-500/30 bg-green-500/5',
+      textColor: 'text-green-400',
+      example: `1. Quel est le vrai nom de Naruto ?
+A) Naruto Sarutobi
+B) Naruto Namikaze ✓
+C) Naruto Uzumaki
+D) Naruto Hatake`,
+    },
+    {
+      label: 'Vrai / Faux',
+      color: 'border-blue-500/30 bg-blue-500/5',
+      textColor: 'text-blue-400',
+      example: `2. Naruto est le Hokage du village caché de la Feuille. Vrai`,
+    },
+    {
+      label: 'DEVINE (Personnage mystère)',
+      color: 'border-purple-500/30 bg-purple-500/5',
+      textColor: 'text-purple-400',
+      example: `DEVINE
+Indice 1: Cheveux orange
+Indice 2: Aime les ramen
+Indice 3: Fils du 4e Hokage
+Réponse: NARUTO`,
+    },
+    {
+      label: 'IMPOSTEUR (Trouve l\'intrus)',
+      color: 'border-red-500/30 bg-red-500/5',
+      textColor: 'text-red-400',
+      example: `IMPOSTEUR - Personnages de Naruto
+1. Sasuke
+2. Sakura
+3. Kakashi
+4. Luffy (INTRUS)`,
+    },
+  ];
+
+  return (
+    <div className="border border-dark-border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between p-3 text-sm text-muted-foreground hover:text-white transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-brand" />
+          Formats supportés
+        </span>
+        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+      </button>
+      {open && (
+        <div className="p-3 pt-0 space-y-3">
+          {formats.map((fmt) => (
+            <div key={fmt.label} className={`border rounded-lg p-3 ${fmt.color}`}>
+              <p className={`text-xs font-semibold mb-1 ${fmt.textColor}`}>{fmt.label}</p>
+              <pre className="text-[11px] text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{fmt.example}</pre>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function AIQuizImporter({ onImport, globalTimeLimit = 30 }: AIQuizImporterProps) {
@@ -176,6 +244,7 @@ export function AIQuizImporter({ onImport, globalTimeLimit = 30 }: AIQuizImporte
           <DialogDescription>Colle le texte généré par ChatGPT, Claude ou une autre IA. Les questions seront parsées automatiquement.</DialogDescription>
         </DialogHeader>
         <div className='space-y-4 mt-4'>
+          <FormatGuide />
           <textarea
             value={inputText}
             onChange={e => setInputText(e.target.value)}

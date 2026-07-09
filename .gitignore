@@ -35,3 +35,10 @@ next-env.d.ts
 
 # debug
 debug.log
+
+# temp and build artifacts
+temp_fq/
+go/tmp/
+go/server.exe
+go/cmd/server/server.exe
+go/data/

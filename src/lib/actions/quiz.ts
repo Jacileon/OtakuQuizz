@@ -363,6 +363,29 @@ export async function deleteQuiz(id: string): Promise<ApiResponse<void>> {
   }
 }
 
+export async function archiveQuiz(id: string): Promise<ApiResponse<void>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { data: null, error: 'Non authentifié', success: false };
+
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from('quizzes')
+      .update({ status: 'archived', is_visible: false })
+      .eq('id', id)
+      .eq('creator_id', user.id);
+
+    if (error) {
+      return { data: null, error: 'Erreur lors de l\'archivage', success: false };
+    }
+
+    return { data: null, error: null, success: true };
+  } catch (error) {
+    return { data: null, error: 'Erreur serveur', success: false };
+  }
+}
+
 export async function publishQuiz(id: string): Promise<ApiResponse<Quiz>> {
   try {
     const user = await getCurrentUser();

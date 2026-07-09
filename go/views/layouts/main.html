@@ -1,33 +1,187 @@
-<!DOCTYPE html>
+{{define "layouts/main"}}<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}} | Otaku Quiz Africa</title>
+    <title>{{if .Title}}{{.Title}} | {{end}}Otaku Quiz Africa</title>
     <link href="/static/css/style.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <nav>
+    <header class="navbar">
         <div class="nav-inner">
-            <a href="/" class="logo">⚔️ OTAKU QUIZ AFRICA</a>
-            <div class="nav-links">
-                <a href="/dashboard">Accueil</a>
-                <a href="/explore">Explorer</a>
-                <a href="/friends">Amis</a>
-                <a href="/leaderboard">Classement</a>
-            </div>
-            <div>
-                <a href="/login" class="btn-login">Connexion</a>
+            <a href="/dashboard" class="nav-logo">
+                <span class="nav-logo-icon">⚔️</span>
+                <span class="nav-logo-text">OTAKU QUIZ AFRICA</span>
+            </a>
+            <nav class="nav-links">
+                <a href="/dashboard" class="nav-link">Accueil</a>
+                <a href="/explore" class="nav-link">Explorer</a>
+                <a href="/friends" class="nav-link">Amis</a>
+                <a href="/defis" class="nav-link">⚔️ Défis</a>
+                <a href="/leaderboard" class="nav-link">Classement</a>
+                <a href="/announcements" class="nav-link">📢</a>
+                <a href="/notifications" class="nav-link" style="position:relative">🔔<span class="notif-badge-count" style="display:none;background:#ef4444;color:white;border-radius:50%;font-size:.55rem;padding:1px 4px;position:absolute;top:0;right:-2px;min-width:14px;text-align:center"></span></a>
+            </nav>
+            <div class="nav-right">
+    {{if .User}}
+    <a href="/support" class="floating-support" title="Support">💬</a>
+    {{end}}
+
+    {{if .User}}
+                <a href="/quiz/create" class="btn-primary btn-sm">+ Créer</a>
+                <div class="user-menu">
+                    <button class="user-menu-trigger" onclick="toggleUserMenu()">
+                        <div class="user-avatar-sm">
+                            {{$user := .User}}
+                            {{if $user.AvatarURL}}
+                            <img src="{{$user.AvatarURL}}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">
+                            {{else}}
+                            {{$initial := "?"}}
+                            {{if $user.Username}}{{$initial = upperFirst $user.Username}}{{end}}
+                            <span>{{$initial}}</span>
+                            {{end}}
+                        </div>
+                        <span class="user-name">{{if $user.Nickname}}{{$user.Nickname}}{{else}}{{$user.Username}}{{end}}{{$.StatsBadge}}</span>
+                    </button>
+                    <div id="user-dropdown" class="user-dropdown" style="display:none">
+                        <a href="/profil" class="dropdown-item">👤 Mon Profil</a>
+                        <a href="/profile/edit" class="dropdown-item">⚙️ Paramètres</a>
+                        <a href="/badges" class="dropdown-item">🏅 Badges</a>
+                        <a href="/collections" class="dropdown-item">📚 Collections</a>
+                        <a href="/defis" class="dropdown-item">⚔️ Défis</a>
+                        <a href="/quiz/mine" class="dropdown-item">📝 Mes Quiz</a>
+                        <a href="/personal-quiz" class="dropdown-item">🎯 Mon Quiz Personnel</a>
+                        <a href="/anon-box" class="dropdown-item">💌 Messages Anonymes</a>
+                         <a href="/forum" class="dropdown-item">💬 Forum</a>
+                        <a href="/boite-a-idees" class="dropdown-item">💡 Boîte à Idées</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="/logout" class="dropdown-item text-red">🚪 Déconnexion</a>
+                    </div>
+                </div>
+                {{else}}
+                <a href="/login" class="btn-primary">Connexion</a>
+                {{end}}
             </div>
         </div>
+    </header>
+
+    <div class="app-layout">
+        {{if .User}}
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">🔥 TOP 5 HEBDO</h3>
+                <div id="sidebar-leaderboard" class="sidebar-list">
+                    <p class="text-muted text-sm">Chargement...</p>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">📂 CATÉGORIES</h3>
+                <div class="sidebar-tags">
+                    <a href="/explore?category=Shonen" class="tag">Shonen</a>
+                    <a href="/explore?category=Seinen" class="tag">Seinen</a>
+                    <a href="/explore?category=Isekai" class="tag">Isekai</a>
+                    <a href="/explore?category=Action" class="tag">Action</a>
+                    <a href="/explore?category=Fantasy" class="tag">Fantasy</a>
+                </div>
+            </div>
+            <div class="sidebar-section">
+                <a href="/forum" class="sidebar-link">💬 Forum Communauté</a>
+                <a href="/boite-a-idees" class="sidebar-link">💡 Boîte à Idées</a>
+                <a href="/personal-quiz" class="sidebar-link">🎯 Mon Quiz Personnel</a>
+                <a href="/defis" class="sidebar-link">⚔️ Défis</a>
+                <a href="/anon-box" class="sidebar-link">💌 Messages Anonymes</a>
+                <a href="/faq" class="sidebar-link">❓ FAQ - Aide</a>
+                <a href="/support" class="sidebar-link">💬 Support</a>
+            </div>
+            {{if .User.IsAdmin}}
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">🔧 ADMIN</h3>
+                <a href="/admin" class="sidebar-link">📊 Dashboard</a>
+                <a href="/admin/official-quizzes" class="sidebar-link">🎯 Quiz officiels</a>
+                <a href="/admin/tickets" class="sidebar-link">🎫 Tickets</a>
+                <a href="/admin/announcements" class="sidebar-link">📢 Annonces</a>
+                <a href="/admin/settings" class="sidebar-link">⚙️ Paramètres</a>
+            </div>
+            {{end}}
+        </aside>
+        {{end}}
+
+        <main class="main-content">
+            {{.Content}}
+        </main>
+    </div>
+
+    {{if .User}}
+    <nav class="mobile-nav">
+        <a href="/dashboard" class="mn-item">🏠<span>Accueil</span></a>
+        <a href="/explore" class="mn-item">🔍<span>Explorer</span></a>
+        <a href="/quiz/create" class="mn-item mn-action">+</a>
+        <a href="/friends" class="mn-item">👥<span>Amis</span></a>
+        <a href="/defis" class="mn-item">⚔️<span>Défis</span></a>
+        <a href="/leaderboard" class="mn-item">🏆<span>Classement</span></a>
     </nav>
-    
-    <main>
-        {{.Content}}
-    </main>
-    
-    <footer>
-        <p>&copy; 2024 Otaku Quiz Africa. Tous droits réservés.</p>
+    {{end}}
+
+    <footer class="footer">
+        <p>&copy; 2024 Otaku Quiz Africa. Fait avec ❤️ pour les fans d'anime d'Afrique.</p>
     </footer>
+
+    {{if .User}}
+    <a href="/support" class="floating-support" title="Support">💬</a>
+    {{end}}
+
+    <script>
+    // User menu toggle
+    function toggleUserMenu() {
+        var menu = document.getElementById('user-dropdown');
+        if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.user-menu')) {
+            var menu = document.getElementById('user-dropdown');
+            if (menu) menu.style.display = 'none';
+        }
+    });
+
+    // Sidebar leaderboard
+    {{if .User}}
+    fetch('/api/rpc/get_global_leaderboard?limit_count=5')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var html = '';
+            if (data && data.length > 0) {
+                data.forEach(function(entry, i) {
+                    var medal = '#' + (i + 1);
+                    if (i === 0) medal = '🥇';
+                    else if (i === 1) medal = '🥈';
+                    else if (i === 2) medal = '🥉';
+                    html += '<div class="sl-row"><span class="sl-rank">' + medal + '</span><span class="sl-name">' + (entry.username || '?') + '</span><span class="sl-rank-badge rank-' + (entry.user_rank || 'f').toLowerCase() + '">' + (entry.user_rank || 'F') + '</span></div>';
+                });
+            } else {
+                html = '<p class="text-muted text-sm">Aucune donnée</p>';
+            }
+            document.getElementById('sidebar-leaderboard').innerHTML = html;
+        })
+        .catch(function() {
+            document.getElementById('sidebar-leaderboard').innerHTML = '<p class="text-muted text-sm">Erreur de chargement</p>';
+        });
+    {{end}}
+
+    // Notification badge polling
+    {{if .User}}
+    function checkNotifications(){
+        fetch('/api/notifications').then(function(r){return r.json()}).then(function(d){
+            var badge=document.querySelector('.notif-badge-count');
+            if(badge&&d.unread_count>0){badge.textContent=d.unread_count;badge.style.display='inline';}
+            else if(badge){badge.style.display='none';}
+        }).catch(function(){});
+    }
+    checkNotifications();
+    setInterval(checkNotifications,15000);
+    {{end}}
+    </script>
 </body>
 </html>
+{{end}}

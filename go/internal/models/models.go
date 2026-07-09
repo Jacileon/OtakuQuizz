@@ -27,37 +27,41 @@ type User struct {
 }
 
 type Quiz struct {
-	ID              string    `json:"id"`
-	CreatorID       string    `json:"creator_id"`
-	Title           string    `json:"title"`
-	Description     *string   `json:"description"`
-	ThumbnailURL    *string   `json:"thumbnail_url"`
-	Category        string    `json:"category"`
-	Subcategory     string    `json:"subcategory"`
-	Series          string    `json:"series"`
-	QuizType        string    `json:"quiz_type"`
-	Status          string    `json:"status"`
-	QuestionCount   int       `json:"question_count"`
-	PlayCount       int       `json:"play_count"`
-	IsVisible       bool      `json:"is_visible"`
+	ID              string     `json:"id"`
+	CreatorID       string     `json:"creator_id"`
+	Title           string     `json:"title"`
+	Description     *string    `json:"description"`
+	ThumbnailURL    *string    `json:"thumbnail_url"`
+	Category        string     `json:"category"`
+	Subcategory     string     `json:"subcategory"`
+	Series          string     `json:"series"`
+	QuizType        string     `json:"quiz_type"`
+	Status          string     `json:"status"`
+	QuestionCount   int        `json:"question_count"`
+	PlayCount       int        `json:"play_count"`
+	IsVisible       bool       `json:"is_visible"`
 	StartsAt        *time.Time `json:"starts_at"`
 	EndsAt          *time.Time `json:"ends_at"`
-	DurationSeconds *int      `json:"duration_seconds"`
-	DurationMode    *string   `json:"duration_mode"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	Creator         *User     `json:"creator,omitempty"`
+	DurationSeconds *int       `json:"duration_seconds"`
+	DurationMode    *string    `json:"duration_mode"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+	Creator         *User      `json:"creator,omitempty"`
 }
 
 type Question struct {
-	ID               string    `json:"id"`
-	QuizID           string    `json:"quiz_id"`
-	QuestionText     string    `json:"question_text"`
-	QuestionType     string    `json:"question_type"`
-	MediaURL         *string   `json:"media_url"`
-	TimeLimitSeconds int       `json:"time_limit_seconds"`
-	OrderIndex       int       `json:"order_index"`
-	Answers          []Answer  `json:"answers,omitempty"`
+	ID                string         `json:"id"`
+	QuizID            string         `json:"quiz_id"`
+	QuestionText      string         `json:"question_text"`
+	QuestionType      string         `json:"question_type"`
+	MediaURL          *string        `json:"media_url"`
+	MediaPublicID     *string        `json:"media_public_id"`
+	TimeLimitSeconds  int            `json:"time_limit_seconds"`
+	OrderIndex        int            `json:"order_index"`
+	CharacterGuessData *GuessData    `json:"character_guess_data,omitempty"`
+	CharacterGuessMode *string       `json:"character_guess_mode,omitempty"`
+	FindOddData       *FindOddData   `json:"find_odd_data,omitempty"`
+	Answers           []Answer       `json:"answers,omitempty"`
 }
 
 type Answer struct {
@@ -68,6 +72,26 @@ type Answer struct {
 	OrderIndex int    `json:"order_index"`
 }
 
+type GuessData struct {
+	Characters []GuessCharacter `json:"characters"`
+}
+
+type GuessCharacter struct {
+	Answer   string  `json:"answer"`
+	Clue     string  `json:"clue"`
+	ImageURL *string `json:"image_url"`
+}
+
+type FindOddData struct {
+	Items     []FindOddItem `json:"items"`
+	OddIndex  int           `json:"odd_index"`
+}
+
+type FindOddItem struct {
+	Content string `json:"content"`
+	Type    string `json:"type"`
+}
+
 type Friendship struct {
 	ID          string    `json:"id"`
 	RequesterID string    `json:"requester_id"`
@@ -75,6 +99,8 @@ type Friendship struct {
 	Status      string    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	Requester   *User     `json:"requester,omitempty"`
+	Addressee   *User     `json:"addressee,omitempty"`
 	Friend      *User     `json:"friend,omitempty"`
 }
 
@@ -89,14 +115,14 @@ type Message struct {
 }
 
 type Conversation struct {
-	ID           string    `json:"id"`
-	User1ID      string    `json:"user1_id"`
-	User2ID      string    `json:"user2_id"`
+	ID            string     `json:"id"`
+	User1ID       string     `json:"user1_id"`
+	User2ID       string     `json:"user2_id"`
 	LastMessageAt *time.Time `json:"last_message_at"`
-	CreatedAt    time.Time `json:"created_at"`
-	OtherUser    *User     `json:"other_user,omitempty"`
-	LastMessage  *Message  `json:"last_message,omitempty"`
-	UnreadCount  int       `json:"unread_count"`
+	CreatedAt     time.Time  `json:"created_at"`
+	OtherUser     *User      `json:"other_user,omitempty"`
+	LastMessage   *Message   `json:"last_message,omitempty"`
+	UnreadCount   int        `json:"unread_count"`
 }
 
 type GameSession struct {
@@ -112,35 +138,36 @@ type GameSession struct {
 	IsPerfect     bool       `json:"is_perfect"`
 	TimeTakenMs   *int       `json:"time_taken_ms"`
 	CreatedAt     time.Time  `json:"created_at"`
+	Quiz          *Quiz      `json:"quiz,omitempty"`
 }
 
 type ChallengeSession struct {
-	ID             string     `json:"id"`
-	QuizID         string     `json:"quiz_id"`
-	CreatorID      string     `json:"creator_id"`
-	MinPlayers     int        `json:"min_players"`
-	InviteExpiresAt time.Time `json:"invite_expires_at"`
-	Status         string     `json:"status"`
-	WinnerID       *string    `json:"winner_id"`
-	TotalXPPool    int        `json:"total_xp_pool"`
-	StartedAt      *time.Time `json:"started_at"`
-	CompletedAt    *time.Time `json:"completed_at"`
-	CreatedAt      time.Time  `json:"created_at"`
-	Quiz           *Quiz      `json:"quiz,omitempty"`
-	Creator        *User      `json:"creator,omitempty"`
+	ID             string                 `json:"id"`
+	QuizID         string                 `json:"quiz_id"`
+	CreatorID      string                 `json:"creator_id"`
+	MinPlayers     int                    `json:"min_players"`
+	InviteExpiresAt time.Time             `json:"invite_expires_at"`
+	Status         string                 `json:"status"`
+	WinnerID       *string                `json:"winner_id"`
+	TotalXPPool    int                    `json:"total_xp_pool"`
+	StartedAt      *time.Time             `json:"started_at"`
+	CompletedAt    *time.Time             `json:"completed_at"`
+	CreatedAt      time.Time              `json:"created_at"`
+	Quiz           *Quiz                  `json:"quiz,omitempty"`
+	Creator        *User                  `json:"creator,omitempty"`
 	Participants   []ChallengeParticipant `json:"participants,omitempty"`
 }
 
 type ChallengeParticipant struct {
-	ID          string  `json:"id"`
-	SessionID   string  `json:"session_id"`
-	UserID      string  `json:"user_id"`
-	XPBet       int     `json:"xp_bet"`
-	Status      string  `json:"status"`
-	Score       int     `json:"score"`
-	XPWon       int     `json:"xp_won"`
-	XPLost      int     `json:"xp_lost"`
-	User        *User   `json:"user,omitempty"`
+	ID        string  `json:"id"`
+	SessionID string  `json:"session_id"`
+	UserID    string  `json:"user_id"`
+	XPBet     int     `json:"xp_bet"`
+	Status    string  `json:"status"`
+	Score     int     `json:"score"`
+	XPWon     int     `json:"xp_won"`
+	XPLost    int     `json:"xp_lost"`
+	User      *User   `json:"user,omitempty"`
 }
 
 type Notification struct {
@@ -152,4 +179,54 @@ type Notification struct {
 	Data      map[string]interface{} `json:"data"`
 	IsRead    bool                   `json:"is_read"`
 	CreatedAt time.Time              `json:"created_at"`
+}
+
+type Badge struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IconURL     string `json:"icon_url"`
+	Rarity      string `json:"rarity"`
+	Condition   string `json:"condition"`
+}
+
+type UserBadge struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	BadgeID   string    `json:"badge_id"`
+	CreatedAt time.Time `json:"created_at"`
+	Badge     *Badge    `json:"badge,omitempty"`
+}
+
+type Event struct {
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	QuizID      string    `json:"quiz_id"`
+	StartsAt    time.Time `json:"starts_at"`
+	EndsAt      time.Time `json:"ends_at"`
+	IsLive      bool      `json:"is_live"`
+	BannerURL   string    `json:"banner_url"`
+	CreatedAt   time.Time `json:"created_at"`
+	Quiz        *Quiz     `json:"quiz,omitempty"`
+}
+
+type LeaderboardEntry struct {
+	UserID        string `json:"user_id"`
+	Username      string `json:"username"`
+	AvatarURL     string `json:"avatar_url"`
+	UserRank      string `json:"user_rank"`
+	XP            int    `json:"xp"`
+	Score         int    `json:"score"`
+	QuizzesPlayed int    `json:"quizzes_played"`
+	Level         int    `json:"level"`
+}
+
+type DashboardStats struct {
+	TotalPlayed  int     `json:"total_played"`
+	BestScore    int     `json:"best_score"`
+	Accuracy     float64 `json:"accuracy"`
+	MonthlyRank  int     `json:"monthly_rank"`
+	TotalXP      int     `json:"total_xp"`
+	CurrentStreak int    `json:"current_streak"`
 }

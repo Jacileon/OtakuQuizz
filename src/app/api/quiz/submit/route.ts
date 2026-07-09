@@ -178,8 +178,7 @@ export async function POST(request: Request) {
       await addXP(user.id, finalXP, 'quiz', session.quiz_id);
     }
 
-    // Mettre à jour le classement du quiz
-    console.log('Updating leaderboard');
+    // Mettre à jour le classement mensuel global
     const { error: leaderboardError } = await supabase.from('leaderboard_monthly').upsert({
       user_id: user.id,
       month_year: new Date().toISOString().slice(0, 7),
@@ -187,9 +186,7 @@ export async function POST(request: Request) {
     }, { onConflict: 'user_id,month_year' });
 
     if (leaderboardError) {
-      console.error('Erreur leaderboard:', leaderboardError);
-    } else {
-      console.log('Leaderboard mis à jour avec succès');
+      console.error('Erreur leaderboard mensuel:', leaderboardError);
     }
 
     // Mettre à jour les stats utilisateur

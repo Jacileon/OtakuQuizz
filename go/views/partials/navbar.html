@@ -14,7 +14,7 @@
         
         <div class="flex items-center gap-4">
             {{if .User}}
-                <span class="text-sm">{{or .User.Nickname .User.Username}}</span>
+                <span class="text-sm">{{or .User.Nickname .User.Username}}{{.StatsBadge}}</span>
                 <a href="/profil" class="text-muted-foreground hover:text-white">
                     <img src="/static/img/default-avatar.png" class="w-8 h-8 rounded-full" alt="Avatar">
                 </a>

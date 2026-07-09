@@ -1,0 +1,9 @@
+// À ajouter dans la fonction de setup des routes Fiber (dans go/cmd/server/main.go)
+// Après les routes API existantes, ajouter :
+
+	miniCup := api.Group("/mini-cup")
+	miniCup.Post("/session", handler.CreateMiniCupSession)
+	miniCup.Get("/sessions", handler.GetMiniCupSessions)
+	miniCup.Post("/session/:id/shot", handler.RecordMiniCupShot)
+	miniCup.Post("/session/:id/finish", handler.FinishMiniCupSession)
+	miniCup.Get("/leaderboard", handler.GetMiniCupLeaderboard)

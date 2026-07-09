@@ -24,8 +24,9 @@ export async function calculateQuestionXP(
   const baseXP = XP_BY_QUESTION_TYPE[questionType] || 1;
 
   try {
-    // Vérifier si la question a déjà été répondue correctement
     const supabase = await createClient();
+
+    // Vérifier si la question a déjà été répondue correctement
     const { data: previousCorrect } = await supabase
       .from('user_question_attempts')
       .select('id')
@@ -39,19 +40,29 @@ export async function calculateQuestionXP(
       return 0; // Déjà gagné, pas d'XP
     }
 
-    // Calculer la dégressivité
-    if (attemptNumber === 1) {
-      return baseXP;
-    } else if (attemptNumber === 2) {
-      return Math.max(1, Math.floor(baseXP / 2));
-    } else if (attemptNumber === 3) {
-      return Math.max(1, Math.floor(baseXP / 4));
-    } else {
-      return 0;
-    }
+    // Compter les tentatives consécutives incorrectes (fausses)
+    const { data: wrongAttempts } = await supabase
+      .from('user_question_attempts')
+      .select('attempt_number')
+      .eq('user_id', userId)
+      .eq('quiz_id', quizId)
+      .eq('question_id', questionId)
+      .eq('is_correct', false)
+      .order('attempt_number', { ascending: false });
+
+    const wrongCount = wrongAttempts ? wrongAttempts.length : 0;
+
+    // Chaque tentative fausse divise l'XP par 2
+    const divisor = Math.pow(2, wrongCount);
+    const xp = baseXP / divisor;
+
+    if (xp < 1) return 0;
+
+    // Retourner avec 2 décimales maximum (sera floorisé plus tard)
+    return Math.floor(xp * 100) / 100;
   } catch (error) {
     console.error('Erreur calculateQuestionXP:', error);
-    return baseXP; // En cas d'erreur, donner l'XP de base
+    return baseXP;
   }
 }
 

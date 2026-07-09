@@ -27,6 +27,7 @@ import {
   Settings,
   Sword,
   Users,
+  Swords,
 } from 'lucide-react';
 import { signOut } from '@/lib/auth/actions';
 import { getInitials, getDisplayName } from '@/lib/utils';
@@ -36,6 +37,7 @@ const navLinks = [
   { href: '/dashboard', label: 'Accueil', icon: Home },
   { href: '/explore', label: 'Explorer', icon: Compass },
   { href: '/friends', label: 'Amis', icon: Users },
+  { href: '/challenges', label: 'Défis', icon: Swords },
   { href: '/events', label: 'Événements', icon: Calendar },
   { href: '/leaderboard', label: 'Classements', icon: Trophy },
 ];

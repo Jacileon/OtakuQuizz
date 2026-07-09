@@ -162,7 +162,7 @@ export default async function QuizDetailPage({
                           <p className="text-sm font-medium truncate">{entry.username}</p>
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary" className="text-[10px]">{entry.user_rank}</Badge>
-                            <span className="text-xs text-muted-foreground">{entry.score} pts</span>
+                            <span className="text-xs text-muted-foreground">{entry.xp_earned} XP</span>
                           </div>
                         </div>
                       </div>

@@ -27,6 +27,7 @@ import {
   Target,
   ChevronRight,
 } from 'lucide-react';
+import { QuizActions } from '@/components/quiz/QuizActions';
 
 export const metadata = {
   title: 'Mon Profil | Otaku Quiz Africa',
@@ -219,15 +220,10 @@ export default async function ProfilPage() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2 mt-4">
-                        <Link href={`/quiz/${quiz.id}/edit`} className="flex-1">
-                          <Button variant="secondary" size="sm" className="w-full gap-2">
-                            <Edit2 className="h-3 w-3" />
-                            Modifier
-                          </Button>
-                        </Link>
-                        <Link href={`/quiz/${quiz.id}/play`} className="flex-1">
-                          <Button variant="default" size="sm" className="w-full gap-2">
+                      <div className="flex items-center justify-between mt-4">
+                        <QuizActions quizId={quiz.id} />
+                        <Link href={`/quiz/${quiz.id}/play`}>
+                          <Button variant="default" size="sm" className="gap-2">
                             <Play className="h-3 w-3" />
                             Jouer
                           </Button>
