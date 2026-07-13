@@ -38,7 +38,8 @@ debug.log
 
 # temp and build artifacts
 temp_fq/
-go/tmp/
-go/server.exe
-go/cmd/server/server.exe
+*.exe
 go/data/
+
+# legacy (code moved to root level)
+go/

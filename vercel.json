@@ -4,29 +4,13 @@
       "src": "api/index.go",
       "use": "@vercel/go",
       "config": {
-        "includeFiles": ["views/**"]
+        "includeFiles": ["views/**", "static/**", "internal/**"]
       }
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/index.go"
-    },
-    {
-      "src": "/personal-quiz(/.*)?",
-      "dest": "/api/index.go"
-    },
-    {
-      "src": "/anon-box(/.*)?",
-      "dest": "/api/index.go"
-    },
-    {
-      "src": "/anon/(.*)",
+      "src": "/(.*)",
       "dest": "/api/index.go"
     }
   ]

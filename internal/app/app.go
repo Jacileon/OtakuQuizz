@@ -1,7 +1,9 @@
-package main
+package app
 
 import (
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -11,7 +13,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/template/html/v2"
-	"github.com/joho/godotenv"
 
 	"otaku-quiz-africa/internal/database"
 	"otaku-quiz-africa/internal/handlers"
@@ -19,13 +20,7 @@ import (
 	"otaku-quiz-africa/internal/sessionstore"
 )
 
-func main() {
-	// Charger les variables d'environnement
-	godotenv.Load("../../.env.local")
-	godotenv.Load("../.env.local")
-	godotenv.Load(".env.local")
-
-	// Mapper les variables Supabase
+func Setup(viewsFS fs.FS, staticPath string) *fiber.App {
 	if os.Getenv("SUPABASE_URL") == "" {
 		os.Setenv("SUPABASE_URL", os.Getenv("NEXT_PUBLIC_SUPABASE_URL"))
 	}
@@ -33,15 +28,13 @@ func main() {
 		os.Setenv("SUPABASE_ANON_KEY", os.Getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY"))
 	}
 
-	// Connexion à Supabase
 	db, err := database.Connect()
 	if err != nil {
 		log.Fatal("Failed to connect to Supabase:", err)
 	}
 	log.Println("Connected to Supabase")
 
-	// Template engine with custom functions
-	engine := html.New("./views", ".html")
+	engine := html.NewFileSystem(http.FS(viewsFS), ".html")
 	engine.AddFunc("upperFirst", func(s string) string {
 		if len(s) == 0 {
 			return "?"
@@ -49,14 +42,12 @@ func main() {
 		return strings.ToUpper(string(s[0]))
 	})
 
-	// Application Fiber
 	app := fiber.New(fiber.Config{
 		Views:         engine,
-		BodyLimit:     4 * 1024 * 1024, // 4MB
-		ReadBufferSize: 16384, // 16KB
+		BodyLimit:     4 * 1024 * 1024,
+		ReadBufferSize: 16384,
 	})
 
-	// Session store avec stockage fichier (persiste après restart)
 	fileStore := sessionstore.New("./data/sessions")
 	store := session.New(session.Config{
 		Storage:         fileStore,
@@ -65,17 +56,16 @@ func main() {
 		Expiration:      72 * time.Hour,
 	})
 
-	// Handlers & middleware
 	h := handlers.New(db, store)
 	mw := middleware.New(db, store)
 
-	// Middleware
 	app.Use(logger.New())
 	app.Use(recover.New())
 	app.Use(mw.SetUser)
 
-	// Fichiers statiques
-	app.Static("/static", "./static")
+	if staticPath != "" {
+		app.Static("/static", staticPath)
+	}
 
 	// Routes publiques
 	app.Get("/", h.Home)
@@ -158,14 +148,12 @@ func main() {
 	api.Post("/forum/suggestions/delete", h.APIDeleteForumSuggestion)
 	api.Post("/forum/suggestions/update", h.APISuggestionUpdate)
 
-	// API mini cup
 	api.Post("/mini-cup/session", h.CreateMiniCupSession)
 	api.Get("/mini-cup/sessions", h.GetMiniCupSessions)
 	api.Post("/mini-cup/session/:id/shot", h.RecordMiniCupShot)
 	api.Post("/mini-cup/session/:id/finish", h.FinishMiniCupSession)
 	api.Get("/mini-cup/leaderboard", h.GetMiniCupLeaderboard)
 
-	// API personal quiz
 	api.Post("/personal-quiz/:id/questions", h.APIPersonalQuizAddQuestion)
 	api.Patch("/personal-quiz/:id/questions/:qid", h.APIPersonalQuizUpdateQuestion)
 	api.Delete("/personal-quiz/:id/questions/:qid", h.APIPersonalQuizDeleteQuestion)
@@ -174,16 +162,14 @@ func main() {
 	api.Post("/personal-quiz/:token/submit", h.PersonalQuizSubmit)
 	api.Post("/personal-quiz/:token/message", h.PersonalQuizSendMessage)
 
-	// API anon box
 	api.Post("/anon-box/create", h.AnonBoxCreatePost)
 	api.Post("/anon-box/reset", h.APIAnonBoxReset)
 	api.Patch("/anon-box", h.APIAnonBoxUpdate)
-	// send is public (no auth needed — used from the shared public page)
 	app.Post("/api/anon-box/:id/send", h.APIAnonBoxSend)
 	api.Post("/anon-box/messages/:mid/read", h.APIAnonBoxMarkRead)
 	api.Post("/anon-box/messages/:mid/delete", h.APIAnonBoxDeleteMsg)
 
-	// Routes publiques — anon box + personal quiz
+	// Routes publiques
 	app.Get("/anon/:token", h.AnonBoxPublic)
 	app.Get("/quiz/personal/:token", h.PersonalQuizView)
 	app.Get("/quiz/personal/:token/play", h.PersonalQuizPlay)
@@ -237,16 +223,13 @@ func main() {
 	protected.Get("/support", h.SupportPage)
 	protected.Get("/support/:id", h.SupportConversation)
 
-	// Personal quiz
 	protected.Get("/personal-quiz/create", h.PersonalQuizCreate)
 	protected.Post("/personal-quiz/create", h.PersonalQuizCreatePost)
 	protected.Get("/personal-quiz", h.PersonalQuizDashboard)
 	protected.Get("/personal-quiz/:id/edit", h.PersonalQuizEdit)
 
-	// Mini Cup game page
 	protected.Get("/games/mini-cup", h.MiniCupPage)
 
-	// Anon box
 	protected.Get("/anon-box/create", h.AnonBoxCreate)
 	protected.Post("/anon-box/create", h.AnonBoxCreatePost)
 	protected.Get("/anon-box", h.AnonBoxDashboard)
@@ -260,12 +243,5 @@ func main() {
 	admin.Get("/announcements", h.AdminAnnouncements)
 	admin.Get("/settings", h.AdminSettings)
 
-	// Port
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	log.Printf("Server starting on http://localhost:%s", port)
-	log.Fatal(app.Listen(":" + port))
+	return app
 }
