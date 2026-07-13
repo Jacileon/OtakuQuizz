@@ -42,3 +42,13 @@ go/tmp/
 go/server.exe
 go/cmd/server/server.exe
 go/data/
+
+# monorepo
+apps/api-go/api/otaku-quiz-africa
+apps/api-go/go.sum
+
+# Next.js
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/.env*.local
