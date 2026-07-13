@@ -6,7 +6,7 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"otaku-quiz-africa/internal/app"
+	"otaku-quiz-africa/pkg/app"
 )
 
 func main() {

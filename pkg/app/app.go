@@ -14,10 +14,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/template/html/v2"
 
-	"otaku-quiz-africa/internal/database"
-	"otaku-quiz-africa/internal/handlers"
-	"otaku-quiz-africa/internal/middleware"
-	"otaku-quiz-africa/internal/sessionstore"
+	"otaku-quiz-africa/pkg/database"
+	"otaku-quiz-africa/pkg/handlers"
+	"otaku-quiz-africa/pkg/middleware"
+	"otaku-quiz-africa/pkg/sessionstore"
 )
 
 func Setup(viewsFS fs.FS, staticPath string) *fiber.App {

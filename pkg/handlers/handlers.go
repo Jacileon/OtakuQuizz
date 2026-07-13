@@ -16,7 +16,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
-	"otaku-quiz-africa/internal/database"
+	"otaku-quiz-africa/pkg/database"
 )
 
 type Handler struct {

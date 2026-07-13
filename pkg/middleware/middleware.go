@@ -11,8 +11,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
-	"otaku-quiz-africa/internal/database"
-	"otaku-quiz-africa/internal/handlers"
+	"otaku-quiz-africa/pkg/database"
+	"otaku-quiz-africa/pkg/handlers"
 )
 
 type Middleware struct {

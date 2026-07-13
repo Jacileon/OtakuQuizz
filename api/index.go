@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
-	"otaku-quiz-africa/internal/app"
+	"otaku-quiz-africa/pkg/app"
 )
 
 var handler http.Handler

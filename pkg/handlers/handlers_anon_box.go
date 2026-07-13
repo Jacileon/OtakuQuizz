@@ -10,7 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"otaku-quiz-africa/internal/database"
+	"otaku-quiz-africa/pkg/database"
 )
 
 // ============================================================
