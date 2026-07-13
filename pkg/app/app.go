@@ -30,9 +30,8 @@ func Setup(viewsFS fs.FS, staticPath string) *fiber.App {
 
 	db, err := database.Connect()
 	if err != nil {
-		log.Fatal("Failed to connect to Supabase:", err)
+		log.Println("WARNING: Failed to connect to Supabase:", err)
 	}
-	log.Println("Connected to Supabase")
 
 	engine := html.NewFileSystem(http.FS(viewsFS), ".html")
 	engine.AddFunc("upperFirst", func(s string) string {
@@ -43,18 +42,31 @@ func Setup(viewsFS fs.FS, staticPath string) *fiber.App {
 	})
 
 	app := fiber.New(fiber.Config{
-		Views:         engine,
-		BodyLimit:     4 * 1024 * 1024,
+		Views:          engine,
+		BodyLimit:      4 * 1024 * 1024,
 		ReadBufferSize: 16384,
 	})
 
-	fileStore := sessionstore.New("./data/sessions")
-	store := session.New(session.Config{
-		Storage:         fileStore,
-		CookieHTTPOnly:  true,
-		CookieSameSite:  "Lax",
-		Expiration:      72 * time.Hour,
-	})
+	var store *session.Store
+	isVercel := os.Getenv("VERCEL") != ""
+	if isVercel {
+		memStore := sessionstore.NewMemory()
+		store = session.New(session.Config{
+			Storage:         memStore,
+			CookieHTTPOnly:  true,
+			CookieSameSite:  "Lax",
+			Expiration:      72 * time.Hour,
+		})
+		log.Println("Using in-memory session store (Vercel serverless)")
+	} else {
+		fileStore := sessionstore.New("./data/sessions")
+		store = session.New(session.Config{
+			Storage:         fileStore,
+			CookieHTTPOnly:  true,
+			CookieSameSite:  "Lax",
+			Expiration:      72 * time.Hour,
+		})
+	}
 
 	h := handlers.New(db, store)
 	mw := middleware.New(db, store)
