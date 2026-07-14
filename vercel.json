@@ -2,10 +2,7 @@
   "builds": [
     {
       "src": "api/index.go",
-      "use": "@vercel/go",
-      "config": {
-        "includeFiles": ["views/**", "static/**", "internal/**"]
-      }
+      "use": "@vercel/go"
     }
   ],
   "routes": [

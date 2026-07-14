@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"embed"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -9,6 +11,9 @@ import (
 
 	"otaku-quiz-africa/pkg/app"
 )
+
+//go:embed views
+var viewsEmbed embed.FS
 
 var handler http.Handler
 
@@ -20,8 +25,11 @@ func init() {
 		os.Setenv("SUPABASE_ANON_KEY", os.Getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY"))
 	}
 
-	viewsFS := os.DirFS("./views")
-	application := app.Setup(viewsFS, "")
+	subFS, err := fs.Sub(viewsEmbed, "views")
+	if err != nil {
+		log.Fatal("Failed to sub views embed:", err)
+	}
+	application := app.Setup(subFS, "")
 	handler = adaptor.FiberApp(application)
 	log.Println("Vercel Go handler initialized")
 }
