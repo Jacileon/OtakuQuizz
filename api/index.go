@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 
@@ -15,7 +16,11 @@ import (
 //go:embed views
 var viewsEmbed embed.FS
 
-var handler http.Handler
+//go:embed static
+var staticEmbed embed.FS
+
+var fiberHandler http.Handler
+var staticHandler http.Handler
 
 func init() {
 	if os.Getenv("SUPABASE_URL") == "" {
@@ -25,15 +30,26 @@ func init() {
 		os.Setenv("SUPABASE_ANON_KEY", os.Getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY"))
 	}
 
-	subFS, err := fs.Sub(viewsEmbed, "views")
+	viewsSub, err := fs.Sub(viewsEmbed, "views")
 	if err != nil {
 		log.Fatal("Failed to sub views embed:", err)
 	}
-	application := app.Setup(subFS, "")
-	handler = adaptor.FiberApp(application)
-	log.Println("Vercel Go handler initialized")
+	application := app.Setup(viewsSub, "")
+	fiberHandler = adaptor.FiberApp(application)
+
+	staticSub, err := fs.Sub(staticEmbed, "static")
+	if err != nil {
+		log.Fatal("Failed to sub static embed:", err)
+	}
+	staticHandler = http.StripPrefix("/static/", http.FileServer(http.FS(staticSub)))
+
+	log.Println("Vercel Go handler initialized (embedded views + static)")
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	handler.ServeHTTP(w, r)
+	if strings.HasPrefix(r.URL.Path, "/static/") {
+		staticHandler.ServeHTTP(w, r)
+		return
+	}
+	fiberHandler.ServeHTTP(w, r)
 }
